@@ -706,16 +706,28 @@ public class JuegoAdivinanza {
                       </div>
                     )}
 
-                    {/* Stdin — textarea para programas con bucles */}
+                    {/* Stdin — bucle detectado → recomendar OnlineGDB */}
                     {showStdinPanel && stdinAnalysis && stdinAnalysis.mode === 'textarea' && (
                       <div className="bg-white border-2 border-amber-200 rounded-2xl p-4 space-y-3 animate-fadeIn">
                         <div className="flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"/>
-                          <h4 className="text-xs font-black text-slate-700 uppercase tracking-widest">Datos de entrada (bucle)</h4>
+                          <h4 className="text-xs font-black text-amber-700 uppercase tracking-widest">⚠️ Programa interactivo</h4>
                         </div>
-                        <p className="text-[10px] text-slate-500 leading-relaxed">El programa tiene bucles. Ingresar todos los valores que el Scanner va a leer, uno por línea (como en OnlineGDB).</p>
-                        <textarea value={stdinText} onChange={e => setStdinText(e.target.value)} rows={5} placeholder={"García\n25\n1.75\n..."} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-400 font-mono resize-none"/>
-                        <button onClick={handleExecute} className="w-full bg-amber-500 hover:bg-amber-600 text-white font-black py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 active:scale-95"><Send className="w-3.5 h-3.5"/>Ejecutar con estos datos</button>
+                        <p className="text-[11px] text-slate-600 leading-relaxed">Este programa usa bucles con Scanner — necesita responder al usuario en tiempo real. Para probarlo correctamente usá <strong>OnlineGDB</strong> que es interactivo.</p>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(editorCode).catch(() => {});
+                            window.open('https://www.onlinegdb.com/online_java_compiler', '_blank');
+                          }}
+                          className="w-full bg-amber-500 hover:bg-amber-600 text-white font-black py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 active:scale-95"
+                        >
+                          📋 Copiar código y abrir OnlineGDB
+                        </button>
+                        <div className="border-t border-slate-100 pt-3 space-y-2">
+                          <p className="text-[10px] text-slate-400 leading-relaxed">O si querés igual ejecutarlo aquí, ingresá todos los valores de una vez (una línea por valor):</p>
+                          <textarea value={stdinText} onChange={e => setStdinText(e.target.value)} rows={4} placeholder={"50\n25\n37\n42\n..."} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-amber-400 font-mono resize-none"/>
+                          <button onClick={handleExecute} className="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-black py-2 rounded-xl text-xs flex items-center justify-center gap-2 active:scale-95"><Send className="w-3.5 h-3.5"/>Ejecutar de todas formas</button>
+                        </div>
                         <button onClick={() => setShowStdinPanel(false)} className="w-full text-slate-400 text-xs font-bold hover:text-slate-600">Cancelar</button>
                       </div>
                     )}

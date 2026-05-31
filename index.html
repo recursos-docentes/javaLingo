@@ -355,37 +355,27 @@ public class JuegoAdivinanza {
       return escaped;
     };
 
-    // ── GLOT.IO API (compilador Java gratuito, token anónimo) ─────────────
-    const glotRun = async (code, stdin) => {
+    // ── JDOODLE API (CORS habilitado, 200 ejecuciones/día gratis) ─────────
+    const jdRun = async (code, stdin, creds) => {
       const normalized = code.replace(/public\s+class\s+\w+/, 'public class Main');
       const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 20000);
+      const timer = setTimeout(() => ctrl.abort(), 15000);
       try {
-        // 1. Obtener token anónimo
-        const authRes = await fetch('https://glot.io/api/auth/anonymous', {
+        const res = await fetch('https://api.jdoodle.com/v1/execute', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: '{}',
-          signal: ctrl.signal
-        });
-        if (!authRes.ok) throw new Error(`Glot auth HTTP ${authRes.status}`);
-        const { token } = await authRes.json();
-
-        // 2. Ejecutar código
-        const runRes = await fetch('https://glot.io/api/run/java/latest', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Token ${token}`
-          },
           body: JSON.stringify({
-            files: [{ name: 'Main.java', content: normalized }],
+            clientId: creds.id,
+            clientSecret: creds.secret,
+            script: normalized,
+            language: 'java',
+            versionIndex: '0',
             stdin: stdin || ''
           }),
           signal: ctrl.signal
         });
-        if (!runRes.ok) throw new Error(`Glot run HTTP ${runRes.status}`);
-        return await runRes.json();
+        if (!res.ok) throw new Error(`JDoodle HTTP ${res.status}`);
+        return await res.json();
       } finally {
         clearTimeout(timer);
       }
@@ -441,6 +431,10 @@ public class JuegoAdivinanza {
       const [isCorrect, setIsCorrect] = useState(false);
       const [feedbackText, setFeedbackText] = useState('');
       // Sandbox
+      const [jdCreds, setJdCreds]               = useState(() => JSON.parse(localStorage.getItem('jl2_jdoodle') || 'null'));
+      const [showSetup, setShowSetup]           = useState(false);
+      const [setupId, setSetupId]               = useState('');
+      const [setupSecret, setSetupSecret]       = useState('');
       const [editorCode, setEditorCode]         = useState(playgroundTemplates[0].code);
       const [consoleLogs, setConsoleLogs]       = useState(['Bienvenido al Playground de Java Real.', 'Carga una plantilla o escribí tu código y presioná Ejecutar.']);
       const [isRunning, setIsRunning]           = useState(false);
@@ -569,8 +563,22 @@ public class JuegoAdivinanza {
       const clearSandbox = () => { playSound('click'); setConsoleLogs(['Consola limpia.']); setIsRunning(false); setShowStdinPanel(false); setStdinAnalysis(null); setMascotMood('happy'); };
       const loadTemplate = (code) => { playSound('click'); setEditorCode(code); clearSandbox(); };
 
+      const saveCredentials = () => {
+        if (!setupId.trim() || !setupSecret.trim()) return;
+        const creds = { id: setupId.trim(), secret: setupSecret.trim() };
+        localStorage.setItem('jl2_jdoodle', JSON.stringify(creds));
+        setJdCreds(creds);
+        setShowSetup(false);
+        // Lanzar ejecución con las credenciales recién guardadas
+        const analysis = analyzeStdin(editorCode);
+        setStdinAnalysis(analysis);
+        if (analysis.mode === 'none') runWithCreds(creds, analysis, {}, '');
+        else { setStdinFields({}); setStdinText(''); setShowStdinPanel(true); setConsoleLogs(['Completar los datos que el programa va a solicitar.']); setMascotMood('thinking'); }
+      };
+
       const handleRunClick = () => {
         playSound('click');
+        if (!jdCreds) { setShowSetup(true); return; }
         const analysis = analyzeStdin(editorCode);
         setStdinAnalysis(analysis);
         if (analysis.mode === 'none') { runOnJudge0(analysis, {}, ''); }
@@ -585,28 +593,25 @@ public class JuegoAdivinanza {
         runOnJudge0(stdinAnalysis, stdinFields, stdin);
       };
 
-      const runOnJudge0 = async (analysis, fields, stdin) => {
+      const runWithCreds = (creds, analysis, fields, stdin) => runOnJudge0(analysis, fields, stdin, creds);
+
+      const runOnJudge0 = async (analysis, fields, stdin, credsOverride) => {
+        const creds = credsOverride || jdCreds;
         setShowStdinPanel(false); setIsRunning(true); setMascotMood('thinking');
-        setConsoleLogs(['⏳ Conectando con compilador Java (Glot.io)...', '🔨 Compilando con OpenJDK...']);
+        setConsoleLogs(['⏳ Enviando al compilador Java (JDoodle)...', '🔨 Compilando con OpenJDK...']);
         try {
-          const result = await glotRun(editorCode, stdin);
+          const result = await jdRun(editorCode, stdin, creds);
           const logs = ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'];
-          // Glot: { stdout, stderr, error }
-          // stderr contiene errores de compilación Y de runtime juntos
-          if (result.error) {
-            logs.push('❌ Error del servidor:');
-            result.error.split('\n').filter(Boolean).forEach(l => logs.push('  ' + l));
-            setMascotMood('scared'); playSound('error');
-          } else if (result.stderr) {
-            const isCompile = /\.java:\d+:/.test(result.stderr);
-            logs.push(isCompile ? '❌ Error de compilación:' : '❌ Error de ejecución:');
-            result.stderr.split('\n').filter(Boolean).forEach(l => logs.push('  ' + l));
+          // JDoodle: { output, statusCode, cpuTime, memory }
+          // statusCode 200 = éxito, de lo contrario error
+          if (result.statusCode !== 200) {
+            logs.push('❌ Error:');
+            (result.output || '').split('\n').filter(Boolean).forEach(l => logs.push('  ' + l));
             setMascotMood('scared'); playSound('error');
           } else {
-            const out = result.stdout || '(sin salida en consola)';
-            out.split('\n').forEach(l => logs.push(l));
+            (result.output || '(sin salida en consola)').split('\n').forEach(l => logs.push(l));
             logs.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-            logs.push('✓ Proceso exitoso');
+            logs.push(`✓ Proceso exitoso — ${result.cpuTime || '?'}s — ${result.memory || '?'} KB`);
             setMascotMood('happy'); playSound('success');
           }
           setConsoleLogs(prev => [...prev, ...logs]);
@@ -744,18 +749,29 @@ public class JuegoAdivinanza {
                       </div>
                     )}
 
-                    {/* Info cuando no hay panel stdin */}
+                    {/* Info / estado del compilador */}
                     {!showStdinPanel && (
-                      <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 space-y-2">
-                        <h4 className="text-xs font-black text-indigo-700 flex items-center gap-1.5"><Cpu className="w-4 h-4"/>Compilador Java Real</h4>
-                        <ul className="text-[11px] text-indigo-700 space-y-1">
-                          <li>✓ Bucles for, while, do-while</li>
-                          <li>✓ Arrays y ArrayList</li>
-                          <li>✓ Random, Math, Scanner</li>
-                          <li>✓ Métodos estáticos y clases</li>
-                          <li>✓ Manejo de excepciones</li>
-                        </ul>
-                        <p className="text-[10px] text-indigo-500 pt-1">Servicio público gratuito Judge0 CE. Puede tardar 5–10 segundos.</p>
+                      <div className={`border rounded-2xl p-4 space-y-2 ${jdCreds ? 'bg-indigo-50 border-indigo-100' : 'bg-amber-50 border-amber-200'}`}>
+                        <h4 className={`text-xs font-black flex items-center gap-1.5 ${jdCreds ? 'text-indigo-700' : 'text-amber-700'}`}>
+                          <Cpu className="w-4 h-4"/>
+                          {jdCreds ? 'Compilador Java Real (JDoodle)' : '⚠️ Configurar compilador'}
+                        </h4>
+                        {jdCreds ? (
+                          <>
+                            <ul className="text-[11px] text-indigo-700 space-y-1">
+                              <li>✓ Bucles for, while, do-while</li>
+                              <li>✓ Arrays y ArrayList</li>
+                              <li>✓ Random, Math, Scanner</li>
+                              <li>✓ Métodos y clases</li>
+                            </ul>
+                            <button onClick={() => { localStorage.removeItem('jl2_jdoodle'); setJdCreds(null); }} className="text-[10px] text-indigo-400 hover:text-rose-500 transition-colors">Cambiar credenciales</button>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-[11px] text-amber-700">Para compilar Java real necesitás credenciales gratuitas de JDoodle (200 ejecuciones/día).</p>
+                            <button onClick={() => setShowSetup(true)} className="w-full bg-amber-500 hover:bg-amber-600 text-white font-black py-2 rounded-xl text-xs">Configurar ahora</button>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
@@ -988,6 +1004,46 @@ public class JuegoAdivinanza {
                 <button onClick={() => { playSound('click'); setScreen('dashboard'); }} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold py-3 rounded-xl text-xs">Volver al Menú</button>
               </div>
             )}
+
+          {/* Modal configuración JDoodle */}
+          {showSetup && (
+            <div className="fixed inset-0 bg-slate-900/70 flex items-center justify-center p-4 z-50 animate-fadeIn">
+              <div className="bg-white rounded-2xl p-6 max-w-md w-full space-y-4 shadow-xl border border-slate-200">
+                <div className="space-y-1">
+                  <h3 className="font-black text-slate-800 text-base flex items-center gap-2"><Code2 className="w-5 h-5 text-indigo-500"/>Configurar compilador Java</h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">JDoodle permite ejecutar Java real desde el navegador. Es gratuito (200 ejecuciones/día).</p>
+                </div>
+
+                <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 space-y-1 text-xs text-indigo-800">
+                  <p className="font-black">Cómo obtener las credenciales:</p>
+                  <ol className="list-decimal list-inside space-y-0.5 font-medium">
+                    <li>Ir a <span className="font-black">jdoodle.com</span> → Register (gratis)</li>
+                    <li>Ir a <span className="font-black">My Account → API Credentials</span></li>
+                    <li>Copiar <span className="font-black">Client ID</span> y <span className="font-black">Client Secret</span></li>
+                  </ol>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-500 uppercase">Client ID</label>
+                    <input type="text" value={setupId} onChange={e => setSetupId(e.target.value)} placeholder="ej: a1b2c3d4e5f6..." className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400 font-mono"/>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-500 uppercase">Client Secret</label>
+                    <input type="password" value={setupSecret} onChange={e => setSetupSecret(e.target.value)} placeholder="••••••••••••••••" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400 font-mono"/>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => setShowSetup(false)} className="flex-1 py-2.5 rounded-xl text-xs font-bold text-slate-500 bg-slate-100 hover:bg-slate-200">Cancelar</button>
+                  <button onClick={saveCredentials} disabled={!setupId.trim() || !setupSecret.trim()} className="flex-1 py-2.5 rounded-xl text-xs font-black text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400">
+                    Guardar y ejecutar
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-400 text-center">Las credenciales se guardan solo en tu dispositivo (localStorage).</p>
+              </div>
+            </div>
+          )}
 
           </main>
 

@@ -9,7 +9,13 @@ export default async function handler(req, res) {
   if (!code) return res.status(400).json({ error: 'Missing code' });
 
   // Renombrar clase pública a Main (requerido por JDoodle)
-  const normalized = code.replace(/public\s+class\s+\w+/, 'public class Main');
+  let normalized = code.replace(/public\s+class\s+\w+/, 'public class Main');
+
+  // Convertir caracteres no-ASCII a escapes Unicode de Java (\uXXXX)
+  // JDoodle compila con encoding ASCII — esto permite usar ñ, á, é, etc.
+  normalized = normalized.replace(/[^\x00-\x7F]/g, c =>
+    '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0')
+  );
 
   try {
     const jdRes = await fetch('https://api.jdoodle.com/v1/execute', {

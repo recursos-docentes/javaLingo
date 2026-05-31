@@ -355,24 +355,25 @@ public class JuegoAdivinanza {
       return escaped;
     };
 
-    // ── JUDGE0 API ─────────────────────────────────────────────────────────
-    const JUDGE0_BASE = 'https://ce.judge0.com';
-    const JAVA_LANG_ID = 62;
-
-    const j0Run = async (code, stdin) => {
-      // Judge0 usa Main.java — renombramos la clase pública automáticamente
+    // ── PISTON API (compilador Java gratuito, sin clave) ───────────────────
+    const pistonRun = async (code, stdin) => {
+      // Piston usa el nombre del archivo — la clase debe llamarse Main
       const normalized = code.replace(/public\s+class\s+\w+/, 'public class Main');
       const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 15000);
+      const timer = setTimeout(() => ctrl.abort(), 20000);
       try {
-        // wait=true → resultado directo, sin polling
-        const res = await fetch(`${JUDGE0_BASE}/submissions?base64_encoded=false&wait=true`, {
+        const res = await fetch('https://emkc.org/api/v2/piston/execute', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ source_code: normalized, language_id: JAVA_LANG_ID, stdin }),
+          body: JSON.stringify({
+            language: 'java',
+            version: '*',
+            files: [{ name: 'Main.java', content: normalized }],
+            stdin: stdin || ''
+          }),
           signal: ctrl.signal
         });
-        if (!res.ok) throw new Error(`Judge0 HTTP ${res.status}`);
+        if (!res.ok) throw new Error(`Piston HTTP ${res.status}`);
         return await res.json();
       } finally {
         clearTimeout(timer);
@@ -575,28 +576,30 @@ public class JuegoAdivinanza {
 
       const runOnJudge0 = async (analysis, fields, stdin) => {
         setShowStdinPanel(false); setIsRunning(true); setMascotMood('thinking');
-        setConsoleLogs(['⏳ Enviando al compilador Java real (Judge0)...', '🔨 Compilando con OpenJDK 13...']);
+        setConsoleLogs(['⏳ Enviando al compilador Java real (Piston)...', '🔨 Compilando con Java OpenJDK...']);
         try {
-          const result = await j0Run(editorCode, stdin);
+          const result = await pistonRun(editorCode, stdin);
           const logs = ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'];
-          if (result.status && (result.status.id === 6 || result.compile_output)) {
+          const compileErr = result.compile && result.compile.code !== 0 ? result.compile.stderr || result.compile.output : null;
+          const runErr     = result.run && result.run.code !== 0 && !compileErr ? result.run.stderr : null;
+          if (compileErr) {
             logs.push('❌ Error de compilación:');
-            (result.compile_output || '').split('\n').filter(Boolean).forEach(l => logs.push('  ' + l));
+            compileErr.split('\n').filter(Boolean).forEach(l => logs.push('  ' + l));
             setMascotMood('scared'); playSound('error');
-          } else if (result.status && result.status.id > 3) {
-            logs.push(`❌ ${result.status.description}:`);
-            (result.stderr || '').split('\n').filter(Boolean).forEach(l => logs.push('  ' + l));
+          } else if (runErr) {
+            logs.push('❌ Error de ejecución:');
+            runErr.split('\n').filter(Boolean).forEach(l => logs.push('  ' + l));
             setMascotMood('scared'); playSound('error');
           } else {
-            const out = result.stdout || '';
+            const out = (result.run && result.run.stdout) || '';
             out.split('\n').forEach(l => logs.push(l));
             logs.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-            logs.push(`✓ Proceso exitoso — ${result.time || '?'}s — ${result.memory || '?'} KB`);
+            logs.push(`✓ Proceso exitoso — Java ${result.version || ''}`);
             setMascotMood('happy'); playSound('success');
           }
           setConsoleLogs(prev => [...prev, ...logs]);
         } catch (e) {
-          setConsoleLogs(prev => [...prev, '❌ Error de conexión con Judge0.', 'Verificá tu Internet e intentá de nuevo.', `Detalle: ${e.message}`]);
+          setConsoleLogs(prev => [...prev, '❌ Error de conexión con el compilador.', 'Verificá tu Internet e intentá de nuevo.', `Detalle: ${e.message}`]);
           setMascotMood('scared'); playSound('error');
         }
         setIsRunning(false);

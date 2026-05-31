@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>JavaLingo — Práctico 1</title>
+  <title>JavaLab — Programación Java</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
@@ -387,7 +387,10 @@ public class JuegoAdivinanza {
       const [isCorrect, setIsCorrect] = useState(false);
       const [feedbackText, setFeedbackText] = useState('');
       // Sandbox
-      const [editorCode, setEditorCode] = useState(playgroundTemplates[0].code);
+      const [editorCode, setEditorCode]     = useState(playgroundTemplates[0].code);
+      const [showShareModal, setShowShareModal] = useState(false);
+      const [shareUrl, setShareUrl]         = useState('');
+      const [shareCopied, setShareCopied]   = useState(false);
 
       useEffect(() => {
         localStorage.setItem('jl2_xp', xp.toString());
@@ -398,6 +401,33 @@ public class JuegoAdivinanza {
       }, [xp, hearts, streak, unlockedLevels, badges]);
 
       useEffect(() => { window.speechSynthesis && window.speechSynthesis.cancel(); }, [screen, currentExerciseIndex]);
+
+      // Leer código compartido de la URL al cargar
+      useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const shared = params.get('code');
+        if (shared) {
+          try {
+            const decoded = decodeURIComponent(escape(atob(shared)));
+            setEditorCode(decoded);
+            setScreen('sandbox');
+          } catch (e) {}
+        }
+      }, []);
+
+      // Escuchar cambios de código desde el iframe de OneCompiler
+      useEffect(() => {
+        const onMsg = (e) => {
+          if (!e.origin.includes('onecompiler.com')) return;
+          const d = e.data;
+          if (!d) return;
+          const code = d.code || d.script || d.files?.[0]?.content;
+          if ((d.eventType === 'codeChanged' || d.type === 'codeChanged') && code)
+            setEditorCode(code);
+        };
+        window.addEventListener('message', onMsg);
+        return () => window.removeEventListener('message', onMsg);
+      }, []);
 
       useEffect(() => {
         if (currentLevel && currentLevel.exercises[currentExerciseIndex] && currentLevel.exercises[currentExerciseIndex].type === 'parsons') {
@@ -507,6 +537,28 @@ public class JuegoAdivinanza {
       // Sandbox
       const loadTemplate = (code) => { playSound('click'); setEditorCode(code); sendToOneCompiler(code); };
 
+      const shareCode = () => {
+        playSound('click');
+        try {
+          const encoded = btoa(unescape(encodeURIComponent(editorCode)));
+          const url = `${window.location.origin}${window.location.pathname}?code=${encoded}`;
+          setShareUrl(url);
+          setShareCopied(false);
+          setShowShareModal(true);
+        } catch (e) {}
+      };
+
+      const copyShareUrl = () => {
+        navigator.clipboard.writeText(shareUrl).then(() => {
+          setShareCopied(true);
+          setTimeout(() => setShareCopied(false), 2500);
+        }).catch(() => {
+          // fallback
+          const el = document.getElementById('share-url-input');
+          if (el) { el.select(); document.execCommand('copy'); setShareCopied(true); setTimeout(() => setShareCopied(false), 2500); }
+        });
+      };
+
       return (
         <div className={`min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans ${easyRead ? 'tracking-wider text-lg' : ''}`}>
 
@@ -516,8 +568,8 @@ public class JuegoAdivinanza {
               <div className="flex items-center gap-2 cursor-pointer" onClick={() => { playSound('click'); setScreen('dashboard'); }}>
                 <div className="bg-emerald-500 text-white p-2 rounded-xl"><Sparkles className="w-5 h-5"/></div>
                 <div>
-                  <h1 className="font-black text-lg tracking-tight text-emerald-600">JavaLingo</h1>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">Edición Práctico 1 (PRIMM)</p>
+                  <h1 className="font-black text-lg tracking-tight text-emerald-600">JavaLab</h1>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">Programación Java · Prof. Izquierdo</p>
                 </div>
               </div>
               <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
@@ -553,21 +605,24 @@ public class JuegoAdivinanza {
                   <div className="bg-white/10 p-3 rounded-2xl shrink-0">{renderMascot('happy')}</div>
                 </div>
 
-                {/* Templates */}
+                {/* Templates + Share */}
                 <div className="bg-white border border-slate-200 p-4 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-sm">
-                  <p className="text-xs font-extrabold text-slate-600">Cargar plantilla en el editor:</p>
-                  <div className="flex flex-wrap gap-2">
+                  <p className="text-xs font-extrabold text-slate-600">Cargar plantilla:</p>
+                  <div className="flex flex-wrap gap-2 flex-1">
                     {playgroundTemplates.map((t, i) => (
                       <button key={i} onClick={() => loadTemplate(t.code)} className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded-lg text-xs font-black active:scale-95 transition-all">{t.name}</button>
                     ))}
                   </div>
+                  <button onClick={shareCode} className="bg-emerald-500 hover:bg-emerald-600 text-white font-black px-4 py-2 rounded-lg text-xs flex items-center gap-1.5 active:scale-95 transition-all shrink-0">
+                    <Send className="w-3.5 h-3.5"/>Compartir código
+                  </button>
                 </div>
 
                 {/* OneCompiler iframe */}
                 <div className="rounded-2xl overflow-hidden border-2 border-slate-700 shadow-lg">
                   <iframe
                     id="oc-iframe"
-                    src="https://onecompiler.com/embed/java?listenToEvents=true&theme=dark&hideLanguageSelection=true&fontSize=14&hideNewFileOption=true&hideTitle=true"
+                    src="https://onecompiler.com/embed/java?listenToEvents=true&codeChangeEvent=true&theme=dark&hideLanguageSelection=true&fontSize=14&hideNewFileOption=true&hideTitle=true"
                     onLoad={() => sendToOneCompiler(editorCode)}
                     style={{ width: '100%', height: '560px', border: 'none', display: 'block' }}
                     title="Playground Java"
@@ -803,6 +858,26 @@ public class JuegoAdivinanza {
                 <button onClick={() => { playSound('click'); setScreen('dashboard'); }} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold py-3 rounded-xl text-xs">Volver al Menú</button>
               </div>
             )}
+
+          {/* Modal compartir código */}
+          {showShareModal && (
+            <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4 z-50 animate-fadeIn">
+              <div className="bg-white rounded-2xl p-6 max-w-lg w-full space-y-4 shadow-xl border border-slate-200">
+                <div className="space-y-1">
+                  <h3 className="font-black text-slate-800 text-base flex items-center gap-2"><Send className="w-5 h-5 text-emerald-500"/>Compartir código</h3>
+                  <p className="text-xs text-slate-500">Copiá el link y enviáselo a la profe. Al abrirlo, el código aparece cargado directamente en el editor.</p>
+                </div>
+                <input id="share-url-input" type="text" readOnly value={shareUrl} onClick={e => e.target.select()} className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-xs font-mono focus:outline-none focus:border-emerald-400 bg-slate-50 text-slate-700 cursor-text"/>
+                <button onClick={copyShareUrl} className={`w-full font-black py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 transition-all active:scale-95 ${shareCopied ? 'bg-emerald-500 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}>
+                  {shareCopied ? <><Check className="w-4 h-4"/>¡Link copiado!</> : <><Send className="w-4 h-4"/>Copiar link</>}
+                </button>
+                <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-100 rounded-xl p-3">
+                  💡 El link refleja el código de la última plantilla cargada. Si modificaste el código en el editor, el link puede no tener los últimos cambios — en ese caso copiá el código manualmente desde el editor de OneCompiler.
+                </p>
+                <button onClick={() => setShowShareModal(false)} className="w-full py-2 rounded-xl text-xs font-bold text-slate-500 bg-slate-100 hover:bg-slate-200">Cerrar</button>
+              </div>
+            </div>
+          )}
 
 </main>
 

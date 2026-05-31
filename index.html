@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JavaLingo — Práctico 1</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/lucide-react@0.451.0/dist/umd/lucide-react.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+    .animate-fadeIn { animation: fadeIn 0.25s ease-out both; }
+    @keyframes spin-slow { to { transform: rotate(360deg); } }
+    .animate-spin-slow { animation: spin-slow 1.5s linear infinite; }
+  </style>
+</head>
+<body class="bg-slate-50">
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="react">
+    const { useState, useEffect } = React;
+    const {
+      BookOpen, Award, Heart, Zap, Play, Volume2, Sparkles, RefreshCw, VolumeX,
+      Type, ChevronRight, Home, Check, Star, Lock, AlertCircle, FileText,
+      Gamepad2, Trophy, Terminal, Code2, Trash2, Send, Loader2, Cpu
+    } = LucideReact;
+
+    // ── AUDIO ──────────────────────────────────────────────────────────────
+    const playSound = (type) => {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        if (type === 'success') {
+          const now = ctx.currentTime;
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(261.63, now);
+          osc.frequency.setValueAtTime(329.63, now + 0.1);
+          osc.frequency.setValueAtTime(392.00, now + 0.2);
+          osc.frequency.setValueAtTime(523.25, now + 0.3);
+          gain.gain.setValueAtTime(0.3, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+          osc.start(now); osc.stop(now + 0.6);
+        } else if (type === 'error') {
+          const now = ctx.currentTime;
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(150, now);
+          osc.frequency.exponentialRampToValueAtTime(80, now + 0.4);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+          osc.start(now); osc.stop(now + 0.4);
+        } else if (type === 'click') {
+          const now = ctx.currentTime;
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(450, now);
+          gain.gain.setValueAtTime(0.1, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+          osc.start(now); osc.stop(now + 0.08);
+        } else if (type === 'victory') {
+          const now = ctx.currentTime;
+          [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+            const o = ctx.createOscillator(); const g = ctx.createGain();
+            o.connect(g); g.connect(ctx.destination); o.type = 'triangle';
+            o.frequency.setValueAtTime(freq, now + idx * 0.12);
+            g.gain.setValueAtTime(0.2, now + idx * 0.12);
+            g.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.12 + 0.4);
+            o.start(now + idx * 0.12); o.stop(now + idx * 0.12 + 0.4);
+          });
+        }
+      } catch (e) {}
+    };
+
+    // ── DATOS ──────────────────────────────────────────────────────────────
+    const levelsData = [
+      {
+        id: 1, title: "Programa 1: Scanner y Datos Personales",
+        description: "Carga e imprime datos separando lógica en métodos.",
+        difficulty: "Fácil 📝", badge: "Especialista en Scanner",
+        themeColor: "from-emerald-400 to-teal-500", icon: FileText,
+        exercises: [
+          {
+            type: "choice",
+            instruction: "Si ves la línea: edad = scanner.nextInt(); ¿Qué pasa si el usuario escribe letras en lugar de un número?",
+            codeSnippet: `System.out.print("Ingrese la edad: ");\nedad = scanner.nextInt();`,
+            options: [
+              { text: "El programa se detiene y da un error (InputMismatchException)", isCorrect: true, rationale: "¡Exacto! nextInt() espera caracteres numéricos. Si recibe letras, Java lanza un error e interrumpe el programa." },
+              { text: "El programa guarda las letras como número 0", isCorrect: false, rationale: "No. Java es fuertemente tipado y no convierte textos a números automáticamente." },
+              { text: "El programa ignora el texto y sigue pidiendo datos", isCorrect: false, rationale: "No. Sin un try-catch, el programa falla de inmediato." }
+            ], mascotExpression: "thinking"
+          },
+          {
+            type: "fillBlank",
+            instruction: "Completar la línea para instanciar correctamente el Scanner que leerá del teclado.",
+            codeTemplate: "Scanner teclado = new Scanner(_______);",
+            options: ["System.in", "System.out", "File.in", "nextInt()"],
+            correctAnswer: "System.in",
+            rationale: "¡Estupendo! 'System.in' representa la entrada estándar (el teclado).", mascotExpression: "happy"
+          },
+          {
+            type: "choice",
+            instruction: "Para guardar el apellido de la persona, ¿cuál es el tipo de dato correcto en Java?",
+            codeSnippet: `_______ apellido;`,
+            options: [
+              { text: "String", isCorrect: true, rationale: "¡Muy bien! 'String' almacena cadenas de caracteres como palabras y nombres." },
+              { text: "double", isCorrect: false, rationale: "No, 'double' es para números con punto decimal." },
+              { text: "int", isCorrect: false, rationale: "No, 'int' es para valores numéricos enteros." }
+            ], mascotExpression: "smart"
+          },
+          {
+            type: "parsons",
+            instruction: "Ordenar estas líneas para declarar un dato (peso), leerlo y mostrarlo en pantalla.",
+            lines: [
+              { id: "line1", text: "double peso;" },
+              { id: "line2", text: 'System.out.print("Ingrese su peso: ");' },
+              { id: "line3", text: "peso = scanner.nextDouble();" },
+              { id: "line4", text: 'System.out.println("Tu peso es: " + peso);' }
+            ],
+            correctOrder: ["line1", "line2", "line3", "line4"],
+            rationale: "¡Perfecto! Declarar la variable, pedir el dato, leer con nextDouble() y mostrar.", mascotExpression: "happy"
+          }
+        ]
+      },
+      {
+        id: 2, title: "Programa 2: Juego Adivina con Random",
+        description: "Genera números aleatorios y repite intentos con do-while e if-else.",
+        difficulty: "Intermedio 🎮", badge: "Campeón de Bucles",
+        themeColor: "from-sky-400 to-blue-500", icon: Gamepad2,
+        exercises: [
+          {
+            type: "choice",
+            instruction: "Con random.nextInt(1000) + 1; ¿Cuál es el rango exacto de números que se generan?",
+            codeSnippet: `int numeroAleatorio = random.nextInt(1000) + 1;`,
+            options: [
+              { text: "Entre 1 y 1000 inclusive", isCorrect: true, rationale: "¡Impecable! nextInt(1000) genera de 0 a 999. Al sumar 1, el rango pasa a 1-1000." },
+              { text: "Entre 0 y 1000 inclusive", isCorrect: false, rationale: "Casi, pero al sumar +1 el mínimo es 1, nunca dará 0." },
+              { text: "Entre 1 y 1001", isCorrect: false, rationale: "No. El máximo de nextInt(1000) es 999, que más 1 da 1000." }
+            ], mascotExpression: "smart"
+          },
+          {
+            type: "fillBlank",
+            instruction: "Para repetir la pregunta al usuario hasta que acierte, ¿cuál estructura repetitiva usar?",
+            codeTemplate: "_______ { \n   // Pedir intento \n} while (intento != numeroAleatorio);",
+            options: ["do", "for", "if", "switch"],
+            correctAnswer: "do",
+            rationale: "¡Fantástico! El 'do-while' garantiza que el bloque se ejecute al menos una vez antes de verificar.", mascotExpression: "happy"
+          },
+          {
+            type: "choice",
+            instruction: "¿Cómo se acumulan los intentos del usuario en el juego?",
+            codeSnippet: `int intentos = 0;\n// ... dentro del bucle ...\n_______`,
+            options: [
+              { text: "intentos++;", isCorrect: true, rationale: "¡Excelente! 'intentos++' suma 1 al contador en cada repetición del bucle." },
+              { text: "intentos = 1;", isCorrect: false, rationale: "No. Asignar 1 siempre reinicia el contador y no cuenta las repeticiones." },
+              { text: "intentos = intentos + intentos;", isCorrect: false, rationale: "No. Si vale 1 daría 2, luego 4 — se duplicaría en vez de contar de a uno." }
+            ], mascotExpression: "curious"
+          },
+          {
+            type: "parsons",
+            instruction: "Ordenar el bloque condicional que da pistas al usuario sobre si el número es mayor o menor.",
+            lines: [
+              { id: "p1", text: "if (intento > numeroAleatorio) {" },
+              { id: "p2", text: '   System.out.println("Demasiado grande");' },
+              { id: "p3", text: "} else if (intento < numeroAleatorio) {" },
+              { id: "p4", text: '   System.out.println("Demasiado chico");' },
+              { id: "p5", text: "}" }
+            ],
+            correctOrder: ["p1", "p2", "p3", "p4", "p5"],
+            rationale: "¡Increíble! Si el intento es mayor, 'Demasiado grande'; si es menor, 'Demasiado chico'.", mascotExpression: "smart"
+          }
+        ]
+      },
+      {
+        id: 3, title: "Vocabulario de Términos Clave",
+        description: "Repasa los significados de los elementos teóricos del práctico.",
+        difficulty: "Teórico 💡", badge: "Maestro del Lenguaje",
+        themeColor: "from-purple-400 to-indigo-500", icon: Award,
+        exercises: [
+          {
+            type: "choice",
+            instruction: "¿Qué significa el término 'Variable' en Java?",
+            codeSnippet: ``,
+            options: [
+              { text: "Un contenedor en memoria que guarda un dato que puede cambiar.", isCorrect: true, rationale: "¡Perfecto! Es un espacio con nombre y tipo donde podemos modificar el contenido durante la ejecución." },
+              { text: "Una instrucción de salida para escribir en consola.", isCorrect: false, rationale: "No, para escribir usamos System.out.print()." },
+              { text: "Un archivo externo para guardar datos permanentes.", isCorrect: false, rationale: "No, las variables viven en RAM mientras el programa se ejecuta." }
+            ], mascotExpression: "thinking"
+          },
+          {
+            type: "fillBlank",
+            instruction: "Completar la acción de guardar un valor en una variable (Asignar) con el operador correcto.",
+            codeTemplate: "edad _______ 18;",
+            options: ["=", "==", "equals", "<-"],
+            correctAnswer: "=",
+            rationale: "¡Muy bien! Un único '=' es el operador de asignación en Java.", mascotExpression: "happy"
+          }
+        ]
+      }
+    ];
+
+    const playgroundTemplates = [
+      {
+        name: "Carga de Datos",
+        code: `import java.util.Scanner;
+
+public class Programa1 {
+    public static void main(String[] args) {
+        Scanner teclado = new Scanner(System.in);
+
+        System.out.print("Ingrese apellido: ");
+        String apellido = teclado.nextLine();
+
+        System.out.print("Ingrese edad: ");
+        int edad = teclado.nextInt();
+
+        System.out.print("Ingrese altura (metros): ");
+        double altura = teclado.nextDouble();
+
+        System.out.println("--- Perfil Guardado ---");
+        System.out.println("Apellido: " + apellido);
+        System.out.println("Edad: " + edad + " años");
+        System.out.println("Altura: " + altura + " m");
+    }
+}`
+      },
+      {
+        name: "Condicionales",
+        code: `import java.util.Scanner;
+
+public class Condicionales {
+    public static void main(String[] args) {
+        int edadMinima = 18;
+        Scanner teclado = new Scanner(System.in);
+
+        System.out.print("¿Cuántos años tienes? ");
+        int edadUsuario = teclado.nextInt();
+
+        if (edadUsuario >= edadMinima) {
+            System.out.println("Mayor de edad. Acceso permitido.");
+        } else {
+            System.out.println("Menor de edad. Acceso restringido.");
+        }
+    }
+}`
+      },
+      {
+        name: "Bucle for",
+        code: `public class BucleFor {
+    public static void main(String[] args) {
+        System.out.println("Tabla del 5:");
+        for (int i = 1; i <= 10; i++) {
+            System.out.println("5 x " + i + " = " + (5 * i));
+        }
+    }
+}`
+      },
+      {
+        name: "do-while + Random",
+        code: `import java.util.Random;
+import java.util.Scanner;
+
+public class JuegoAdivinanza {
+    public static void main(String[] args) {
+        Random random = new Random();
+        int secreto = random.nextInt(100) + 1;
+        Scanner teclado = new Scanner(System.in);
+        int intentos = 0, intento;
+
+        System.out.println("Adivina el número del 1 al 100:");
+        do {
+            System.out.print("Tu intento: ");
+            intento = teclado.nextInt();
+            intentos++;
+            if (intento > secreto) System.out.println("Muy grande");
+            else if (intento < secreto) System.out.println("Muy chico");
+        } while (intento != secreto);
+
+        System.out.println("Acertaste en " + intentos + " intento(s).");
+    }
+}`
+      },
+      {
+        name: "Arrays",
+        code: `public class EjemploArray {
+    public static void main(String[] args) {
+        int[] notas = {7, 9, 5, 8, 10};
+        int suma = 0;
+
+        for (int i = 0; i < notas.length; i++) {
+            System.out.println("Nota " + (i+1) + ": " + notas[i]);
+            suma += notas[i];
+        }
+
+        double promedio = (double) suma / notas.length;
+        System.out.println("Promedio: " + promedio);
+    }
+}`
+      }
+    ];
+
+    // ── SYNTAX HIGHLIGHT ───────────────────────────────────────────────────
+    const highlightJavaCode = (source) => {
+      if (!source) return "";
+      let escaped = source.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+      let tokens = [];
+      escaped = escaped.replace(/"(\\.|[^"\\])*"/g, (m) => {
+        const ph = `___STR${tokens.length}___`;
+        tokens.push({ id: ph, html: `<span class="text-emerald-400 font-semibold">${m}</span>` });
+        return ph;
+      });
+      escaped = escaped.replace(/\/\/.*$/gm, (m) => {
+        const ph = `___COM${tokens.length}___`;
+        tokens.push({ id: ph, html: `<span class="text-slate-500 italic">${m}</span>` });
+        return ph;
+      });
+      const keywords = new Set(['public','class','void','static','int','double','boolean','char','if','else','do','while','for','new','import','return','main','String','long','float']);
+      const classMap = { System:'text-cyan-300 font-semibold', Scanner:'text-cyan-300 font-semibold', Random:'text-cyan-300 font-semibold', println:'text-teal-300', print:'text-teal-300', out:'text-blue-300', in:'text-blue-300', Math:'text-blue-300', length:'text-teal-300' };
+      escaped = escaped.replace(/\b\w+\b/g, (w) => {
+        if (keywords.has(w)) return `<span class="text-fuchsia-400 font-bold">${w}</span>`;
+        if (classMap[w]) return `<span class="${classMap[w]}">${w}</span>`;
+        if (/^\d+$/.test(w)) return `<span class="text-amber-400">${w}</span>`;
+        return w;
+      });
+      escaped = escaped.replace(/\b\d+\.\d+\b/g, m => `<span class="text-amber-400">${m}</span>`);
+      tokens.forEach(t => { escaped = escaped.replace(t.id, t.html); });
+      return escaped;
+    };
+
+    // ── JUDGE0 API ─────────────────────────────────────────────────────────
+    const JUDGE0_BASE = 'https://ce.judge0.com';
+    const JAVA_LANG_ID = 62;
+
+    const j0Submit = async (code, stdin) => {
+      const res = await fetch(`${JUDGE0_BASE}/submissions?base64_encoded=false&wait=false`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source_code: code, language_id: JAVA_LANG_ID, stdin })
+      });
+      if (!res.ok) throw new Error(`Judge0 HTTP ${res.status}`);
+      const { token } = await res.json();
+      if (!token) throw new Error('No se recibió token de Judge0.');
+      return token;
+    };
+
+    const j0Poll = async (token) => {
+      for (let i = 0; i < 20; i++) {
+        await new Promise(r => setTimeout(r, 1500));
+        const res = await fetch(`${JUDGE0_BASE}/submissions/${token}?base64_encoded=false`);
+        const data = await res.json();
+        if (data.status && data.status.id > 2) return data;
+      }
+      throw new Error('Timeout: el compilador tardó demasiado.');
+    };
+
+    // ── ANÁLISIS STDIN ─────────────────────────────────────────────────────
+    const analyzeStdin = (code) => {
+      if (/\b(for|while|do)\b/.test(code)) return { mode: 'textarea', inputs: [] };
+      const lines = code.split('\n');
+      const inputs = [];
+      lines.forEach((line, idx) => {
+        const t = line.trim();
+        let type = null, hint = '';
+        if      (t.includes('.nextInt()'))    { type = 'int';    hint = 'ej: 25'; }
+        else if (t.includes('.nextDouble()')) { type = 'double'; hint = 'ej: 1.75'; }
+        else if (t.includes('.nextFloat()'))  { type = 'float';  hint = 'ej: 1.75'; }
+        else if (t.includes('.nextLong()'))   { type = 'long';   hint = 'ej: 12345'; }
+        else if (t.includes('.nextLine()'))   { type = 'texto';  hint = 'ej: García'; }
+        else if (t.includes('.next()'))       { type = 'texto';  hint = 'ej: García'; }
+        if (type) {
+          let label = `Valor (${type})`;
+          for (let i = idx - 1; i >= Math.max(0, idx - 3); i--) {
+            const prev = lines[i].trim();
+            if (prev.includes('System.out.print')) {
+              const m = prev.match(/"([^"]+)"/);
+              if (m) { label = m[1].replace(/:\s*$/, '').trim(); break; }
+            }
+          }
+          inputs.push({ label, type, hint });
+        }
+      });
+      if (inputs.length === 0) return { mode: 'none', inputs: [] };
+      return { mode: 'fields', inputs };
+    };
+
+    // ── APP ────────────────────────────────────────────────────────────────
+    function App() {
+      const [xp, setXp]         = useState(() => Number(localStorage.getItem('jl2_xp') || 0));
+      const [hearts, setHearts] = useState(() => Number(localStorage.getItem('jl2_hearts') || 5));
+      const [streak, setStreak] = useState(() => Number(localStorage.getItem('jl2_streak') || 1));
+      const [unlockedLevels, setUnlockedLevels] = useState(() => JSON.parse(localStorage.getItem('jl2_unlocked') || '[1]'));
+      const [badges, setBadges] = useState(() => JSON.parse(localStorage.getItem('jl2_badges') || '[]'));
+      const [screen, setScreen] = useState('dashboard');
+      const [easyRead, setEasyRead] = useState(false);
+      const [ttsEnabled, setTtsEnabled] = useState(true);
+      const [showResetConfirm, setShowResetConfirm] = useState(false);
+      const [currentLevel, setCurrentLevel] = useState(null);
+      const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
+      const [selectedAnswer, setSelectedAnswer] = useState(null);
+      const [parsonsOrder, setParsonsOrder] = useState([]);
+      const [blankAnswer, setBlankAnswer] = useState('');
+      const [isAnswered, setIsAnswered] = useState(false);
+      const [isCorrect, setIsCorrect] = useState(false);
+      const [feedbackText, setFeedbackText] = useState('');
+      // Sandbox
+      const [editorCode, setEditorCode]         = useState(playgroundTemplates[0].code);
+      const [consoleLogs, setConsoleLogs]       = useState(['Bienvenido al Playground de Java Real.', 'Carga una plantilla o escribí tu código y presioná Ejecutar.']);
+      const [isRunning, setIsRunning]           = useState(false);
+      const [stdinAnalysis, setStdinAnalysis]   = useState(null);
+      const [stdinFields, setStdinFields]       = useState({});
+      const [stdinText, setStdinText]           = useState('');
+      const [showStdinPanel, setShowStdinPanel] = useState(false);
+      const [mascotMood, setMascotMood]         = useState('happy');
+
+      useEffect(() => {
+        localStorage.setItem('jl2_xp', xp.toString());
+        localStorage.setItem('jl2_hearts', hearts.toString());
+        localStorage.setItem('jl2_streak', streak.toString());
+        localStorage.setItem('jl2_unlocked', JSON.stringify(unlockedLevels));
+        localStorage.setItem('jl2_badges', JSON.stringify(badges));
+      }, [xp, hearts, streak, unlockedLevels, badges]);
+
+      useEffect(() => { window.speechSynthesis && window.speechSynthesis.cancel(); }, [screen, currentExerciseIndex]);
+
+      useEffect(() => {
+        if (currentLevel && currentLevel.exercises[currentExerciseIndex] && currentLevel.exercises[currentExerciseIndex].type === 'parsons') {
+          const shuffled = [...currentLevel.exercises[currentExerciseIndex].lines].sort(() => Math.random() - 0.5);
+          setParsonsOrder(shuffled);
+        }
+      }, [currentLevel, currentExerciseIndex]);
+
+      const handleSpeak = (text) => {
+        if (!ttsEnabled || !window.speechSynthesis) return;
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = 'es-ES'; u.rate = 0.85;
+        window.speechSynthesis.speak(u);
+      };
+
+      const resetExerciseStates = () => { setSelectedAnswer(null); setBlankAnswer(''); setIsAnswered(false); setIsCorrect(false); setFeedbackText(''); };
+
+      const startLevel = (level) => { playSound('click'); setCurrentLevel(level); setCurrentExerciseIndex(0); resetExerciseStates(); setScreen('lesson'); };
+
+      const checkAnswer = () => {
+        if (isAnswered) return;
+        const exercise = currentLevel.exercises[currentExerciseIndex];
+        let correct = false, explanation = '';
+        if (exercise.type === 'choice') {
+          if (selectedAnswer === null) return;
+          const opt = exercise.options.find(o => o.text === selectedAnswer);
+          correct = opt.isCorrect; explanation = opt.rationale;
+        } else if (exercise.type === 'fillBlank') {
+          if (!blankAnswer) return;
+          correct = blankAnswer.toLowerCase() === exercise.correctAnswer.toLowerCase();
+          explanation = exercise.rationale;
+        } else if (exercise.type === 'parsons') {
+          correct = JSON.stringify(parsonsOrder.map(i => i.id)) === JSON.stringify(exercise.correctOrder);
+          explanation = exercise.rationale;
+        }
+        setIsCorrect(correct); setIsAnswered(true); setFeedbackText(explanation);
+        if (correct) { playSound('success'); setXp(prev => prev + 20); }
+        else {
+          playSound('error');
+          setHearts(prev => { const next = prev - 1; if (next <= 0) setTimeout(() => setScreen('gameover'), 1500); return next; });
+        }
+      };
+
+      const handleNext = () => {
+        playSound('click');
+        if (currentExerciseIndex + 1 < currentLevel.exercises.length) { setCurrentExerciseIndex(prev => prev + 1); resetExerciseStates(); }
+        else {
+          const newUnlocked = [...unlockedLevels];
+          if (currentLevel.id < levelsData.length && !newUnlocked.includes(currentLevel.id + 1)) newUnlocked.push(currentLevel.id + 1);
+          setUnlockedLevels(newUnlocked);
+          if (!badges.includes(currentLevel.badge)) { setBadges(prev => [...prev, currentLevel.badge]); playSound('victory'); }
+          setStreak(prev => prev + 1); setScreen('victory');
+        }
+      };
+
+      const buyHearts = () => { playSound('success'); if (xp >= 60) setXp(prev => prev - 60); setHearts(5); setScreen('dashboard'); };
+      const resetAllProgress = () => { playSound('click'); setXp(0); setHearts(5); setStreak(1); setUnlockedLevels([1]); setBadges([]); setScreen('dashboard'); setShowResetConfirm(false); };
+      const moveParsonsItem = (index, direction) => {
+        playSound('click');
+        const items = [...parsonsOrder];
+        if (direction === 'up' && index > 0) [items[index], items[index-1]] = [items[index-1], items[index]];
+        else if (direction === 'down' && index < items.length-1) [items[index], items[index+1]] = [items[index+1], items[index]];
+        setParsonsOrder(items);
+      };
+
+      // Mascot
+      const renderMascot = (expression) => {
+        const happy = expression === 'happy' || (isAnswered && isCorrect);
+        const scared = expression === 'scared' || (isAnswered && !isCorrect);
+        const thinking = expression === 'thinking';
+        let eyes = (
+          <g>
+            <circle cx="43" cy="38" r="4.5" fill="#1e293b"/><circle cx="57" cy="38" r="4.5" fill="#1e293b"/>
+            <circle cx="41.5" cy="36.5" r="1.5" fill="white"/><circle cx="55.5" cy="36.5" r="1.5" fill="white"/>
+          </g>
+        );
+        let rightArm = <path d="M 72 54 C 80 58,85 64,88 72" fill="none" stroke="#1e293b" strokeWidth="6.5" strokeLinecap="round"/>;
+        let leftArm  = <path d="M 28 54 C 20 58,15 64,12 72" fill="none" stroke="#1e293b" strokeWidth="6.5" strokeLinecap="round"/>;
+        let extra = null;
+        if (happy) {
+          eyes = (<g><path d="M 38 39 Q 43 32 48 39" stroke="#1e293b" strokeWidth="3.5" fill="none" strokeLinecap="round"/><path d="M 52 39 Q 57 32 62 39" stroke="#1e293b" strokeWidth="3.5" fill="none" strokeLinecap="round"/></g>);
+          rightArm = <path d="M 72 50 Q 86 32 90 22" fill="none" stroke="#1e293b" strokeWidth="6.5" strokeLinecap="round"/>;
+          extra = (<g><circle cx="15" cy="18" r="3" fill="#f59e0b"/><circle cx="85" cy="15" r="4" fill="#fbbf24"/></g>);
+        } else if (scared) {
+          eyes = (<g><circle cx="43" cy="38" r="6" fill="#1e293b"/><circle cx="43" cy="38" r="2.5" fill="white"/><circle cx="57" cy="38" r="6" fill="#1e293b"/><circle cx="57" cy="38" r="2.5" fill="white"/></g>);
+          rightArm = <path d="M 72 54 Q 85 45 80 34" fill="none" stroke="#1e293b" strokeWidth="6.5" strokeLinecap="round"/>;
+          leftArm  = <path d="M 28 54 Q 15 45 20 34" fill="none" stroke="#1e293b" strokeWidth="6.5" strokeLinecap="round"/>;
+        } else if (thinking) {
+          eyes = (<g><path d="M 37 29 L 47 31" stroke="#1e293b" strokeWidth="2.5" strokeLinecap="round"/><path d="M 53 31 L 63 29" stroke="#1e293b" strokeWidth="2.5" strokeLinecap="round"/><circle cx="41" cy="38" r="4" fill="#1e293b"/><circle cx="59" cy="38" r="4" fill="#1e293b"/></g>);
+          leftArm = <path d="M 28 54 Q 15 35 25 21" fill="none" stroke="#1e293b" strokeWidth="6.5" strokeLinecap="round"/>;
+        }
+        return (
+          <div className="flex flex-col items-center p-2 bg-slate-50 rounded-xl border border-slate-100">
+            <svg width="88" height="88" viewBox="0 0 100 100" className="drop-shadow-sm">
+              {extra}
+              <path d="M 50 12 C 28 42,16 82,50 82 C 84 82,72 42,50 12 Z" fill="#ffffff" stroke="#1e293b" strokeWidth="3" strokeLinejoin="round"/>
+              {leftArm}{rightArm}{eyes}
+              <ellipse cx="50" cy="52" rx="14" ry="17" fill="#ef4444" stroke="#b91c1c" strokeWidth="2.5"/>
+              <circle cx="12" cy="74" r="4.5" fill="white" stroke="#1e293b" strokeWidth="2"/>
+            </svg>
+            <span className="text-[10px] font-black text-slate-400 mt-1 uppercase tracking-widest">Duke</span>
+          </div>
+        );
+      };
+
+      // Sandbox
+      const clearSandbox = () => { playSound('click'); setConsoleLogs(['Consola limpia.']); setIsRunning(false); setShowStdinPanel(false); setStdinAnalysis(null); setMascotMood('happy'); };
+      const loadTemplate = (code) => { playSound('click'); setEditorCode(code); clearSandbox(); };
+
+      const handleRunClick = () => {
+        playSound('click');
+        const analysis = analyzeStdin(editorCode);
+        setStdinAnalysis(analysis);
+        if (analysis.mode === 'none') { runOnJudge0(analysis, {}, ''); }
+        else { setStdinFields({}); setStdinText(''); setShowStdinPanel(true); setConsoleLogs(['Completar los datos que el programa va a solicitar.']); setMascotMood('thinking'); }
+      };
+
+      const handleExecute = () => {
+        let stdin = '';
+        if (stdinAnalysis && stdinAnalysis.mode === 'fields')
+          stdin = stdinAnalysis.inputs.map((_, i) => stdinFields[i] || '').join('\n');
+        else stdin = stdinText;
+        runOnJudge0(stdinAnalysis, stdinFields, stdin);
+      };
+
+      const runOnJudge0 = async (analysis, fields, stdin) => {
+        setShowStdinPanel(false); setIsRunning(true); setMascotMood('thinking');
+        setConsoleLogs(['⏳ Enviando al compilador Java real (Judge0)...', '🔨 Compilando con OpenJDK 13...']);
+        try {
+          const token = await j0Submit(editorCode, stdin);
+          setConsoleLogs(prev => [...prev, '✓ Código enviado. Esperando resultado...']);
+          const result = await j0Poll(token);
+          const logs = ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'];
+          if (result.status && (result.status.id === 6 || result.compile_output)) {
+            logs.push('❌ Error de compilación:');
+            (result.compile_output || '').split('\n').filter(Boolean).forEach(l => logs.push('  ' + l));
+            setMascotMood('scared'); playSound('error');
+          } else if (result.status && result.status.id > 3) {
+            logs.push(`❌ ${result.status.description}:`);
+            (result.stderr || '').split('\n').filter(Boolean).forEach(l => logs.push('  ' + l));
+            setMascotMood('scared'); playSound('error');
+          } else {
+            const out = result.stdout || '';
+            out.split('\n').forEach(l => logs.push(l));
+            logs.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            logs.push(`✓ Proceso exitoso — ${result.time || '?'}s — ${result.memory || '?'} KB`);
+            setMascotMood('happy'); playSound('success');
+          }
+          setConsoleLogs(prev => [...prev, ...logs]);
+        } catch (e) {
+          setConsoleLogs(prev => [...prev, '❌ Error de conexión con Judge0.', 'Verificá tu Internet e intentá de nuevo.', `Detalle: ${e.message}`]);
+          setMascotMood('scared'); playSound('error');
+        }
+        setIsRunning(false);
+      };
+
+      return (
+        <div className={`min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans ${easyRead ? 'tracking-wider text-lg' : ''}`}>
+
+          {/* HEADER */}
+          <header className="bg-white border-b border-slate-200 px-4 py-3 sticky top-0 z-50 shadow-sm">
+            <div className="max-w-4xl mx-auto flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2 cursor-pointer" onClick={() => { playSound('click'); setScreen('dashboard'); }}>
+                <div className="bg-emerald-500 text-white p-2 rounded-xl"><Sparkles className="w-5 h-5"/></div>
+                <div>
+                  <h1 className="font-black text-lg tracking-tight text-emerald-600">JavaLingo</h1>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">Edición Práctico 1 (PRIMM)</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+                <button onClick={() => { playSound('click'); setScreen('dashboard'); }} className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${screen !== 'sandbox' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>Ruta Práctico</button>
+                <button onClick={() => { playSound('click'); setScreen('sandbox'); }} className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1 ${screen === 'sandbox' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}><Code2 className="w-3.5 h-3.5"/>Playground</button>
+              </div>
+              <div className="flex items-center gap-3 bg-slate-100 px-3 py-1.5 rounded-full text-xs font-black">
+                <div className="flex items-center gap-1 text-amber-500"><Zap className="w-4 h-4 fill-current"/><span>{streak}</span></div>
+                <div className="flex items-center gap-1 text-indigo-500"><Star className="w-4 h-4 fill-current"/><span>{xp} XP</span></div>
+                <div className="flex items-center gap-1 text-rose-500"><Heart className="w-4 h-4 fill-current"/><span>{hearts}</span></div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => { playSound('click'); setEasyRead(!easyRead); }} className={`px-2.5 py-1.5 rounded-lg border text-xs font-extrabold flex items-center gap-1 ${easyRead ? 'bg-indigo-100 text-indigo-700 border-indigo-300' : 'bg-white text-slate-500 border-slate-200'}`}><Type className="w-3.5 h-3.5"/>Letra Grande</button>
+                <button onClick={() => { playSound('click'); setTtsEnabled(!ttsEnabled); }} className={`p-1.5 rounded-lg border ${ttsEnabled ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-white text-slate-400 border-slate-200'}`}>
+                  {ttsEnabled ? <Volume2 className="w-4 h-4"/> : <VolumeX className="w-4 h-4"/>}
+                </button>
+              </div>
+            </div>
+          </header>
+
+          <main className="flex-1 max-w-4xl w-full mx-auto p-4 flex flex-col animate-fadeIn">
+
+            {/* ── SANDBOX ─────────────────────────────────────────────── */}
+            {screen === 'sandbox' && (
+              <div className="space-y-5 py-4">
+                <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-5 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+                  <div className="space-y-1 text-center md:text-left">
+                    <span className="bg-indigo-700/50 text-indigo-100 text-xs px-3 py-1 rounded-full font-black uppercase tracking-widest">Java Real — Judge0 CE</span>
+                    <h2 className="text-2xl font-black flex items-center justify-center md:justify-start gap-2"><Terminal className="w-6 h-6"/>Playground de Java</h2>
+                    <p className="text-indigo-100 text-sm max-w-lg">Código compilado por <strong>OpenJDK 13 real</strong>. Usá bucles, arrays, Random, métodos — todo Java. Si el programa usa Scanner, se pedirán los datos antes de ejecutar.</p>
+                  </div>
+                  <div className="bg-white/10 p-3 rounded-2xl shrink-0">{renderMascot(mascotMood)}</div>
+                </div>
+
+                <div className="bg-white border border-slate-200 p-4 rounded-xl flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs font-extrabold text-slate-600">Plantillas:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {playgroundTemplates.map((t, i) => (
+                      <button key={i} onClick={() => loadTemplate(t.code)} className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded-lg text-xs font-black active:scale-95 transition-all">{t.name}</button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                  {/* Editor */}
+                  <div className="lg:col-span-7 bg-white border-2 border-slate-200 rounded-2xl p-4 space-y-3 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Code2 className="w-4 h-4 text-indigo-500"/>Editor Java</h3>
+                      <button onClick={() => loadTemplate('')} className="text-slate-400 hover:text-rose-500 p-1.5 rounded-lg hover:bg-slate-100" title="Borrar"><Trash2 className="w-4 h-4"/></button>
+                    </div>
+                    <div className="relative font-mono text-xs bg-slate-900 rounded-xl overflow-hidden border border-slate-800">
+                      <div className="flex min-h-[320px]">
+                        <div className="bg-slate-950 text-slate-600 text-right px-2.5 py-3 select-none border-r border-slate-800/50 min-w-[38px]">
+                          {editorCode.split('\n').map((_, i) => (<div key={i} className="h-5 leading-5">{i + 1}</div>))}
+                        </div>
+                        <div className="relative flex-1">
+                          <pre className="absolute inset-0 p-3 pointer-events-none font-mono text-xs leading-5 whitespace-pre-wrap break-words overflow-auto" dangerouslySetInnerHTML={{ __html: highlightJavaCode(editorCode) }} style={{ fontFamily: 'monospace' }}/>
+                          <textarea value={editorCode} onChange={e => setEditorCode(e.target.value)} disabled={isRunning} className="absolute inset-0 w-full h-full p-3 bg-transparent text-transparent caret-white focus:outline-none resize-none font-mono text-xs leading-5 z-10" placeholder="// Escribe tu código Java aquí..." style={{ fontFamily: 'monospace', WebkitTextFillColor: 'transparent' }}/>
+                        </div>
+                      </div>
+                    </div>
+                    <button onClick={handleRunClick} disabled={isRunning} className={`w-full font-black py-3 rounded-xl text-xs flex items-center justify-center gap-2 active:scale-95 transition-all ${isRunning ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm'}`}>
+                      {isRunning
+                        ? <><Loader2 className="w-4 h-4 animate-spin-slow"/>Compilando en Java real...</>
+                        : <><Play className="w-4 h-4 fill-current"/>Ejecutar Código</>}
+                    </button>
+                  </div>
+
+                  {/* Output + Stdin */}
+                  <div className="lg:col-span-5 flex flex-col gap-4">
+                    {/* Consola */}
+                    <div className="bg-slate-950 text-slate-100 rounded-2xl p-4 border-2 border-slate-800 shadow-md flex flex-col" style={{ minHeight: '220px' }}>
+                      <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-2">
+                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-1"><Terminal className="w-3.5 h-3.5 text-emerald-400"/>Consola de Salida</span>
+                        {isRunning && <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"/>}
+                      </div>
+                      <div className="flex-1 overflow-y-auto font-mono text-[11px] space-y-0.5" style={{ maxHeight: '200px' }}>
+                        {consoleLogs.map((log, i) => (
+                          <div key={i} className={`leading-relaxed whitespace-pre-wrap ${log.startsWith('❌') ? 'text-rose-400' : log.startsWith('✓') ? 'text-emerald-400' : log.startsWith('━') ? 'text-slate-600' : ''}`}>{log}</div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Stdin — campos individuales */}
+                    {showStdinPanel && stdinAnalysis && stdinAnalysis.mode === 'fields' && (
+                      <div className="bg-white border-2 border-indigo-200 rounded-2xl p-4 space-y-3 animate-fadeIn">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"/>
+                          <h4 className="text-xs font-black text-slate-700 uppercase tracking-widest">Datos de entrada</h4>
+                        </div>
+                        <p className="text-[10px] text-slate-500">El programa tiene {stdinAnalysis.inputs.length} lectura(s) de teclado. Completar antes de ejecutar.</p>
+                        {stdinAnalysis.inputs.map((inp, i) => (
+                          <div key={i} className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-500 uppercase">{inp.label} <span className="text-indigo-400 normal-case font-normal">({inp.type})</span></label>
+                            <input type="text" value={stdinFields[i] || ''} onChange={e => setStdinFields(prev => ({ ...prev, [i]: e.target.value }))} onKeyDown={e => { if (e.key === 'Enter' && i === stdinAnalysis.inputs.length - 1) handleExecute(); }} placeholder={inp.hint} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400 font-mono"/>
+                          </div>
+                        ))}
+                        <button onClick={handleExecute} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 active:scale-95"><Send className="w-3.5 h-3.5"/>Ejecutar con estos datos</button>
+                        <button onClick={() => setShowStdinPanel(false)} className="w-full text-slate-400 text-xs font-bold hover:text-slate-600">Cancelar</button>
+                      </div>
+                    )}
+
+                    {/* Stdin — textarea para programas con bucles */}
+                    {showStdinPanel && stdinAnalysis && stdinAnalysis.mode === 'textarea' && (
+                      <div className="bg-white border-2 border-amber-200 rounded-2xl p-4 space-y-3 animate-fadeIn">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"/>
+                          <h4 className="text-xs font-black text-slate-700 uppercase tracking-widest">Datos de entrada (bucle)</h4>
+                        </div>
+                        <p className="text-[10px] text-slate-500 leading-relaxed">El programa tiene bucles. Ingresar todos los valores que el Scanner va a leer, uno por línea (como en OnlineGDB).</p>
+                        <textarea value={stdinText} onChange={e => setStdinText(e.target.value)} rows={5} placeholder={"García\n25\n1.75\n..."} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-400 font-mono resize-none"/>
+                        <button onClick={handleExecute} className="w-full bg-amber-500 hover:bg-amber-600 text-white font-black py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 active:scale-95"><Send className="w-3.5 h-3.5"/>Ejecutar con estos datos</button>
+                        <button onClick={() => setShowStdinPanel(false)} className="w-full text-slate-400 text-xs font-bold hover:text-slate-600">Cancelar</button>
+                      </div>
+                    )}
+
+                    {/* Info cuando no hay panel stdin */}
+                    {!showStdinPanel && (
+                      <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 space-y-2">
+                        <h4 className="text-xs font-black text-indigo-700 flex items-center gap-1.5"><Cpu className="w-4 h-4"/>Compilador Java Real</h4>
+                        <ul className="text-[11px] text-indigo-700 space-y-1">
+                          <li>✓ Bucles for, while, do-while</li>
+                          <li>✓ Arrays y ArrayList</li>
+                          <li>✓ Random, Math, Scanner</li>
+                          <li>✓ Métodos estáticos y clases</li>
+                          <li>✓ Manejo de excepciones</li>
+                        </ul>
+                        <p className="text-[10px] text-indigo-500 pt-1">Servicio público gratuito Judge0 CE. Puede tardar 5–10 segundos.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── DASHBOARD ─────────────────────────────────────────────── */}
+            {screen === 'dashboard' && (
+              <div className="space-y-6 py-4 animate-fadeIn">
+                <div className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-6 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6">
+                  <div className="space-y-2 text-center md:text-left">
+                    <span className="bg-emerald-700/50 text-emerald-100 text-xs px-3 py-1 rounded-full font-black uppercase tracking-widest">Aprende Jugando</span>
+                    <h2 className="text-2xl font-black">¡Ejercicios del Práctico 1!</h2>
+                    <p className="text-emerald-50 text-sm max-w-lg">Actividades interactivas para practicar Scanner, Random y estructuras de control a tu propio ritmo.</p>
+                  </div>
+                  <div className="bg-white/10 p-3 rounded-2xl shrink-0">{renderMascot('happy')}</div>
+                </div>
+
+                {hearts <= 0 && (
+                  <div className="bg-rose-50 border-2 border-rose-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-3"><AlertCircle className="w-8 h-8 text-rose-500"/><div><h4 className="font-extrabold text-rose-800 text-sm">¡Sin corazones!</h4><p className="text-xs text-rose-600">Recuperar 5 vidas gratis ahora.</p></div></div>
+                    <button onClick={buyHearts} className="bg-rose-500 hover:bg-rose-600 text-white font-black px-4 py-2 rounded-xl text-xs">Recargar Vidas</button>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><BookOpen className="w-4 h-4 text-emerald-500"/>Lecciones del Práctico</h3>
+                  {levelsData.map((level) => {
+                    const isUnlocked = unlockedLevels.includes(level.id);
+                    const isCompleted = badges.includes(level.badge);
+                    const LevelIcon = level.icon;
+                    return (
+                      <div key={level.id} className={`relative overflow-hidden bg-white rounded-2xl border-2 p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-all ${isUnlocked ? 'border-slate-200 hover:shadow-md cursor-pointer' : 'border-slate-100 opacity-50 pointer-events-none'}`} onClick={() => isUnlocked && hearts > 0 && startLevel(level)}>
+                        <div className={`absolute top-0 left-0 h-full w-2 bg-gradient-to-b ${level.themeColor}`}/>
+                        <div className="flex items-start gap-3.5 pl-2 flex-1">
+                          <div className="bg-slate-100 p-2.5 rounded-xl text-slate-600 shrink-0"><LevelIcon className="w-5 h-5"/></div>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-[10px] font-black uppercase text-slate-400">Nivel {level.id}</span>
+                              <span className="text-[10px] px-2 py-0.5 rounded-full font-black bg-slate-100 text-slate-600">{level.difficulty}</span>
+                              {isCompleted && <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-0.5"><Check className="w-3 h-3 stroke-[3]"/>Completado</span>}
+                            </div>
+                            <h4 className="text-base font-black text-slate-800">{level.title}</h4>
+                            <p className="text-xs text-slate-500 max-w-xl leading-relaxed">{level.description}</p>
+                          </div>
+                        </div>
+                        <div className="pl-12 md:pl-0">
+                          {isUnlocked
+                            ? <button onClick={e => { e.stopPropagation(); hearts > 0 && startLevel(level); }} className={`px-4 py-2.5 rounded-xl font-black text-xs text-white active:scale-95 bg-gradient-to-r ${level.themeColor}`}>{isCompleted ? 'Repasar' : '¡Comenzar!'}</button>
+                            : <div className="bg-slate-100 text-slate-400 px-3 py-2 rounded-xl flex items-center gap-1.5 text-xs font-black"><Lock className="w-3.5 h-3.5"/>Bloqueado</div>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="bg-white border-2 border-slate-200 rounded-2xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
+                  <div className="space-y-1 text-center md:text-left">
+                    <h4 className="font-black text-sm text-slate-700 flex items-center justify-center md:justify-start gap-1.5"><Trophy className="w-4 h-4 text-amber-500"/>Certificado del Práctico 1</h4>
+                    <p className="text-xs text-slate-400">Completar los {levelsData.length} niveles para generar el pase de calificaciones.</p>
+                  </div>
+                  <button disabled={badges.length < levelsData.length} onClick={() => { playSound('click'); setScreen('certificate'); }} className={`px-5 py-3 rounded-xl font-black text-xs flex items-center gap-1.5 ${badges.length === levelsData.length ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}>
+                    <Award className="w-4 h-4"/>Ver Certificado ({badges.length}/{levelsData.length})
+                  </button>
+                </div>
+
+                <div className="flex justify-end">
+                  <button onClick={() => { playSound('click'); setShowResetConfirm(true); }} className="text-[10px] font-black text-slate-300 hover:text-rose-400">Reiniciar todo mi progreso</button>
+                </div>
+              </div>
+            )}
+
+            {/* Modal reset */}
+            {showResetConfirm && (
+              <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-2xl p-6 max-w-sm w-full space-y-4 border border-slate-200 shadow-xl text-center">
+                  <div className="w-12 h-12 bg-rose-100 text-rose-500 rounded-full flex items-center justify-center mx-auto"><AlertCircle className="w-6 h-6"/></div>
+                  <div><h3 className="font-black text-slate-800 text-base">¿Reiniciar todo?</h3><p className="text-xs text-slate-500 mt-1">Borrará XP, insignias y racha. No se puede deshacer.</p></div>
+                  <div className="flex gap-2">
+                    <button onClick={() => { playSound('click'); setShowResetConfirm(false); }} className="flex-1 py-2 rounded-xl text-xs font-bold text-slate-500 bg-slate-100 hover:bg-slate-200">Cancelar</button>
+                    <button onClick={resetAllProgress} className="flex-1 py-2 rounded-xl text-xs font-bold text-white bg-rose-500 hover:bg-rose-600">Sí, reiniciar</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── LECCIÓN ─────────────────────────────────────────────── */}
+            {screen === 'lesson' && currentLevel && (() => {
+              const exercise = currentLevel.exercises[currentExerciseIndex];
+              if (!exercise) return null;
+              return (
+                <div className="space-y-4 py-2 animate-fadeIn">
+                  <div className="flex items-center justify-between gap-4">
+                    <button onClick={() => { playSound('click'); setScreen('dashboard'); }} className="text-xs font-black text-slate-400 hover:text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-lg">Volver</button>
+                    <div className="flex-1 bg-slate-200 rounded-full h-2.5 overflow-hidden">
+                      <div className={`h-full bg-gradient-to-r ${currentLevel.themeColor} transition-all duration-300`} style={{ width: `${(currentExerciseIndex / currentLevel.exercises.length) * 100}%` }}/>
+                    </div>
+                    <span className="text-[10px] font-black text-slate-400 whitespace-nowrap">{currentExerciseIndex + 1} / {currentLevel.exercises.length}</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
+                    <div className="md:col-span-3 bg-white border-2 border-slate-200 rounded-2xl p-5 space-y-4 shadow-sm">
+                      <div className="flex items-start justify-between gap-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <h3 className="font-extrabold text-sm md:text-base text-slate-800 leading-snug">{exercise.instruction}</h3>
+                        <button onClick={() => handleSpeak(exercise.instruction)} className="bg-emerald-50 hover:bg-emerald-100 text-emerald-600 p-2.5 rounded-xl shrink-0"><Volume2 className="w-4 h-4"/></button>
+                      </div>
+
+                      {exercise.codeSnippet && (
+                        <div className="bg-slate-900 text-emerald-400 p-4 rounded-xl font-mono text-xs overflow-x-auto border border-slate-800 leading-relaxed whitespace-pre">
+                          {exercise.codeSnippet}
+                        </div>
+                      )}
+
+                      {exercise.type === 'choice' && (
+                        <div className="space-y-2">
+                          {exercise.options.map((opt, i) => (
+                            <button key={i} disabled={isAnswered} onClick={() => { playSound('click'); setSelectedAnswer(opt.text); }} className={`w-full text-left p-3.5 rounded-xl border-2 font-bold flex items-center justify-between text-xs sm:text-sm transition-all ${selectedAnswer === opt.text ? 'border-indigo-500 bg-indigo-50 text-indigo-900' : 'border-slate-100 hover:bg-slate-50 text-slate-700'}`}>
+                              <span>{opt.text}</span>
+                              <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${selectedAnswer === opt.text ? 'border-indigo-500 bg-indigo-500 text-white' : 'border-slate-300'}`}>{selectedAnswer === opt.text && <Check className="w-2.5 h-2.5 stroke-[3]"/>}</div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {exercise.type === 'fillBlank' && (
+                        <div className="space-y-4">
+                          <div className="bg-slate-900 text-slate-100 p-4 rounded-xl font-mono text-xs border border-slate-800">
+                            <div className="flex flex-wrap items-center gap-2">
+                              {exercise.codeTemplate.split('_______').map((part, i, arr) => (
+                                <React.Fragment key={i}>
+                                  <span className="whitespace-pre">{part}</span>
+                                  {i < arr.length - 1 && (
+                                    <span className={`inline-block px-3 py-1 rounded-lg border-2 font-black min-w-[90px] text-center transition-all ${blankAnswer ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-slate-800 text-slate-400 border-dashed border-slate-600'}`}>{blankAnswer || 'Toca abajo'}</span>
+                                  )}
+                                </React.Fragment>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {exercise.options.map((opt, i) => (
+                              <button key={i} disabled={isAnswered} onClick={() => { playSound('click'); setBlankAnswer(opt); }} className={`px-4 py-2 rounded-xl border-2 font-black text-xs transition-all ${blankAnswer === opt ? 'bg-indigo-100 text-indigo-800 border-indigo-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'}`}>{opt}</button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {exercise.type === 'parsons' && (
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ordenar con las flechas:</p>
+                          {parsonsOrder.map((line, idx) => (
+                            <div key={line.id} className="flex items-center gap-2 bg-slate-900 text-slate-200 p-2.5 rounded-xl border border-slate-800 font-mono text-xs">
+                              <div className="flex flex-col gap-1 shrink-0">
+                                <button disabled={idx === 0 || isAnswered} onClick={() => moveParsonsItem(idx, 'up')} className="bg-slate-800 hover:bg-slate-700 disabled:opacity-25 p-1 rounded text-[10px]">▲</button>
+                                <button disabled={idx === parsonsOrder.length - 1 || isAnswered} onClick={() => moveParsonsItem(idx, 'down')} className="bg-slate-800 hover:bg-slate-700 disabled:opacity-25 p-1 rounded text-[10px]">▼</button>
+                              </div>
+                              <span className="flex-1 select-none whitespace-pre">{line.text}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
+                        <div>{!isAnswered && !selectedAnswer && !blankAnswer && exercise.type !== 'parsons' && <span className="text-[10px] font-black text-amber-500 flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5"/>Elegir respuesta para validar</span>}</div>
+                        {!isAnswered
+                          ? <button onClick={checkAnswer} disabled={!selectedAnswer && !blankAnswer && exercise.type !== 'parsons'} className="bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-black px-5 py-2.5 rounded-xl text-xs">Comprobar</button>
+                          : <button onClick={handleNext} className="bg-indigo-600 hover:bg-indigo-700 text-white font-black px-5 py-2.5 rounded-xl text-xs flex items-center gap-1">Continuar<ChevronRight className="w-4 h-4"/></button>}
+                      </div>
+                    </div>
+
+                    <div className="bg-white border-2 border-slate-200 rounded-2xl p-4 flex flex-col items-center text-center space-y-3 shadow-sm">
+                      {renderMascot(exercise.mascotExpression)}
+                      {isAnswered && (
+                        <div className={`p-3 rounded-xl border text-xs leading-relaxed w-full ${isCorrect ? 'bg-emerald-50 border-emerald-100 text-emerald-800' : 'bg-rose-50 border-rose-100 text-rose-800'}`}>
+                          <div className="font-black pb-1 text-[10px] uppercase">{isCorrect ? '¡Impecable!' : 'No te preocupes'}</div>
+                          <p>{feedbackText}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* ── VICTORIA ─────────────────────────────────────────────── */}
+            {screen === 'victory' && currentLevel && (
+              <div className="max-w-md mx-auto bg-white border-2 border-slate-200 rounded-2xl p-6 text-center space-y-5 shadow-md animate-fadeIn">
+                <div className="flex justify-center"><div className="bg-amber-50 p-4 rounded-full border border-amber-200"><Star className="w-12 h-12 text-amber-500 fill-current"/></div></div>
+                <div><h2 className="text-xl font-black text-slate-800">¡Reto Completado! 🎉</h2><p className="text-slate-500 text-xs mt-1">Nivel <strong>"{currentLevel.title}"</strong> superado.</p></div>
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex justify-between items-center text-sm font-black text-slate-700">
+                  <span>Insignia:</span>
+                  <span className="text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-100">{currentLevel.badge}</span>
+                </div>
+                <button onClick={() => { playSound('click'); setScreen('dashboard'); }} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black py-3 rounded-xl text-xs flex items-center justify-center gap-1.5"><Home className="w-4 h-4"/>Regresar a la Ruta</button>
+              </div>
+            )}
+
+            {/* ── GAME OVER ────────────────────────────────────────────── */}
+            {screen === 'gameover' && (
+              <div className="max-w-md mx-auto bg-white border-2 border-slate-200 rounded-2xl p-6 text-center space-y-5 shadow-md animate-fadeIn">
+                <div className="flex justify-center"><div className="bg-rose-50 p-4 rounded-full border border-rose-200"><Heart className="w-12 h-12 text-rose-500 fill-current"/></div></div>
+                <div><h2 className="text-xl font-black text-slate-800">¡Inténtalo de nuevo!</h2><p className="text-slate-500 text-xs mt-1 leading-relaxed">El error es el mejor maestro en programación. Recuperá tus vidas y volvé a intentarlo.</p></div>
+                <button onClick={buyHearts} className="w-full bg-rose-500 hover:bg-rose-600 text-white font-black py-3 rounded-xl text-xs flex items-center justify-center gap-1.5"><RefreshCw className="w-4 h-4"/>Recuperar Vidas Gratis</button>
+              </div>
+            )}
+
+            {/* ── CERTIFICADO ──────────────────────────────────────────── */}
+            {screen === 'certificate' && (
+              <div className="max-w-xl mx-auto bg-white border-4 border-amber-500 rounded-3xl p-8 space-y-6 shadow-xl relative overflow-hidden animate-fadeIn">
+                <div className="absolute -top-12 -right-12 w-32 h-32 bg-amber-100 rounded-full opacity-40 blur-xl"/>
+                <div className="text-center space-y-2">
+                  <span className="text-xs font-black text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">Pase de Calificaciones</span>
+                  <h2 className="text-3xl font-black text-slate-800 mt-2">Certificado de Logro</h2>
+                </div>
+                <div className="border-y-2 border-slate-100 py-5 space-y-4 text-center">
+                  <p className="text-sm text-slate-600">Por completar con éxito todas las fases de la metodología <strong>PRIMM</strong> del:</p>
+                  <h3 className="text-xl font-black text-slate-800 uppercase">PRÁCTICO 1: SCANNER Y RANDOM</h3>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {badges.map((badge, i) => (<span key={i} className="bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full px-3 py-1 text-xs font-black flex items-center gap-1"><Check className="w-3.5 h-3.5 stroke-[3]"/>{badge}</span>))}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                  <div className="text-center"><span className="text-[10px] font-black text-slate-400 uppercase">Puntos XP</span><p className="text-2xl font-black text-emerald-600">{xp} XP</p></div>
+                  <div className="text-center"><span className="text-[10px] font-black text-slate-400 uppercase">Estado</span><p className="text-lg font-black text-amber-600 flex items-center justify-center gap-1"><Award className="w-5 h-5"/>EXCELENTE</p></div>
+                </div>
+                <div className="text-center">
+                  <p className="text-[10px] font-black text-rose-500 uppercase">📸 ¡Tomar una captura de pantalla!</p>
+                  <p className="text-[10px] text-slate-400 mt-1">Subir a la tarea de <strong className="text-indigo-600">CREA</strong> para verificar la nota.</p>
+                </div>
+                <button onClick={() => { playSound('click'); setScreen('dashboard'); }} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold py-3 rounded-xl text-xs">Volver al Menú</button>
+              </div>
+            )}
+
+          </main>
+
+          <footer className="bg-slate-100 py-5 border-t border-slate-200 text-center px-4 space-y-1">
+            <p className="font-black text-xs text-slate-600 uppercase tracking-widest">Prof. Elizabeth Izquierdo • Programación Java</p>
+            <p className="text-[10px] text-slate-400">Diseñada por Prof. Elizabeth Izquierdo con asistencia de Claude — CC BY-SA 4.0</p>
+          </footer>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

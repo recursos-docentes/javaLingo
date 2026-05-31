@@ -227,6 +227,154 @@
       }
     ];
 
+    // ── EJERCICIOS DEL CLASSROOM ───────────────────────────────────────────
+    const classroomExercises = [
+      {
+        id: 1,
+        title: "Ejercicio 1 — Datos Personales",
+        subtitle: "Scanner · Variables · Métodos",
+        difficulty: "Fácil",
+        color: "from-emerald-400 to-teal-500",
+        description: "Crear un programa que solicite los datos personales de un usuario, los almacene en variables del tipo adecuado y los muestre formateados en pantalla. Separar la lógica en métodos.",
+        requirements: [
+          "Solicitar: apellido (texto), edad (entero), altura en metros (decimal), número de cédula (entero largo).",
+          "Utilizar al menos dos métodos estáticos: uno para cargar los datos y otro para mostrarlos.",
+          "El método de carga debe recibir el Scanner como parámetro.",
+          "Mostrar los datos con una cabecera como '--- Perfil Guardado ---'."
+        ],
+        example: {
+          input: "García\n22\n1.75\n52345678",
+          output: "--- Perfil Guardado ---\nApellido: García\nEdad: 22 años\nAltura: 1.75 m\nCédula: 52345678"
+        },
+        hint: "Declarar las variables antes de los métodos (como atributos de clase estáticos) para que ambos métodos puedan acceder a ellas.",
+        starterCode: `import java.util.Scanner;
+
+public class Main {
+
+    static String apellido;
+    static int edad;
+    static double altura;
+    static long cedula;
+
+    public static void cargarDatos(Scanner sc) {
+        // Completar: pedir e ingresar los 4 datos
+    }
+
+    public static void mostrarDatos() {
+        // Completar: imprimir el perfil formateado
+    }
+
+    public static void main(String[] args) {
+        Scanner teclado = new Scanner(System.in);
+        cargarDatos(teclado);
+        mostrarDatos();
+    }
+}`
+      },
+      {
+        id: 2,
+        title: "Ejercicio 2 — Adivina el Número",
+        subtitle: "Random · do-while · if-else · Contadores",
+        difficulty: "Intermedio",
+        color: "from-sky-400 to-blue-500",
+        description: "Desarrollar un juego en Java donde la computadora genera un número aleatorio entre 1 y 1000, y el usuario debe adivinarlo. El programa debe dar pistas en cada intento y contar cuántos intentos fueron necesarios.",
+        requirements: [
+          "Generar un número aleatorio entre 1 y 1000 usando la clase Random.",
+          "Usar un bucle do-while para repetir los intentos hasta que el usuario acierte.",
+          "En cada intento indicar si el número ingresado es 'Demasiado grande' o 'Demasiado chico'.",
+          "Al acertar, mostrar la cantidad de intentos realizados.",
+          "Separar la lógica en al menos dos métodos."
+        ],
+        example: {
+          input: "500\n750\n625\n700\n680",
+          output: "¡Adivina el número entre 1 y 1000!\nIngrese intento: Demasiado chico\nIngrese intento: Demasiado grande\nIngrese intento: Demasiado chico\nIngrese intento: Demasiado grande\nIngrese intento: ¡Correcto! Lo lograste en 5 intentos."
+        },
+        hint: "El bucle do-while ejecuta el bloque al menos una vez antes de verificar la condición. La condición de salida es que el intento sea igual al número secreto.",
+        starterCode: `import java.util.Random;
+import java.util.Scanner;
+
+public class Main {
+
+    static int numeroSecreto;
+    static int intentos = 0;
+
+    public static void generarNumero() {
+        Random random = new Random();
+        // Completar: generar número entre 1 y 1000
+    }
+
+    public static void jugar(Scanner sc) {
+        int intento;
+        // Completar: bucle do-while con pistas
+    }
+
+    public static void main(String[] args) {
+        Scanner teclado = new Scanner(System.in);
+        System.out.println("¡Adivina el número entre 1 y 1000!");
+        generarNumero();
+        jugar(teclado);
+        System.out.println("¡Correcto! Lo lograste en " + intentos + " intento(s).");
+    }
+}`
+      },
+      {
+        id: 3,
+        title: "Ejercicio 3 — Notas del Grupo",
+        subtitle: "Arrays · Bucles · Promedio · Máximo",
+        difficulty: "Intermedio",
+        color: "from-purple-400 to-indigo-500",
+        description: "Crear un programa que gestione las notas de un grupo de estudiantes utilizando un array. El programa debe calcular el promedio, la nota más alta y cuántos aprobaron.",
+        requirements: [
+          "Declarar un array de enteros para almacenar las notas de 5 estudiantes.",
+          "Cargar las notas mediante un bucle for con Scanner.",
+          "Calcular y mostrar: promedio del grupo, nota más alta, cantidad de aprobados (nota ≥ 6).",
+          "Separar cada cálculo en su propio método estático."
+        ],
+        example: {
+          input: "8\n5\n9\n6\n4",
+          output: "--- Resultados del Grupo ---\nPromedio: 6.4\nNota más alta: 9\nAprobados: 3 de 5"
+        },
+        hint: "Para el máximo, inicializar una variable con el primer elemento del array y recorrerlo comparando con cada nota. Para el promedio, acumular la suma y dividir por la cantidad.",
+        starterCode: `import java.util.Scanner;
+
+public class Main {
+
+    static int[] notas = new int[5];
+
+    public static void cargarNotas(Scanner sc) {
+        for (int i = 0; i < notas.length; i++) {
+            System.out.print("Nota del estudiante " + (i+1) + ": ");
+            notas[i] = sc.nextInt();
+        }
+    }
+
+    public static double calcularPromedio() {
+        // Completar
+        return 0;
+    }
+
+    public static int calcularMaximo() {
+        // Completar
+        return 0;
+    }
+
+    public static int contarAprobados() {
+        // Completar (aprobado = nota >= 6)
+        return 0;
+    }
+
+    public static void main(String[] args) {
+        Scanner teclado = new Scanner(System.in);
+        cargarNotas(teclado);
+        System.out.println("--- Resultados del Grupo ---");
+        System.out.println("Promedio: " + calcularPromedio());
+        System.out.println("Nota más alta: " + calcularMaximo());
+        System.out.println("Aprobados: " + contarAprobados() + " de " + notas.length);
+    }
+}`
+      }
+    ];
+
     const playgroundTemplates = [
       {
         name: "Carga de Datos",
@@ -399,6 +547,11 @@ public class JuegoAdivinanza {
       const [isAnswered, setIsAnswered] = useState(false);
       const [isCorrect, setIsCorrect] = useState(false);
       const [feedbackText, setFeedbackText] = useState('');
+      // Classroom
+      const [selectedExercise, setSelectedExercise] = useState(null);
+      const [classroomIframeLoaded, setClassroomIframeLoaded] = useState(false);
+      const [exerciseLinkCopied, setExerciseLinkCopied] = useState(false);
+
       // Sandbox
       const [editorCode, setEditorCode]       = useState(playgroundTemplates[0].code);
       const [iframeLoaded, setIframeLoaded]   = useState(false);
@@ -416,16 +569,19 @@ public class JuegoAdivinanza {
 
       useEffect(() => { window.speechSynthesis && window.speechSynthesis.cancel(); }, [screen, currentExerciseIndex]);
 
-      // Leer código compartido de la URL al cargar
+      // Leer parámetros de URL al cargar
       useEffect(() => {
         const params = new URLSearchParams(window.location.search);
+        // Código compartido del Playground
         const shared = params.get('code');
         if (shared) {
-          try {
-            const decoded = fromB64(shared);
-            setEditorCode(decoded);
-            setScreen('sandbox');
-          } catch (e) {}
+          try { setEditorCode(fromB64(shared)); setScreen('sandbox'); } catch (e) {}
+        }
+        // Link directo a un ejercicio del Classroom
+        const exId = params.get('ejercicio');
+        if (exId) {
+          const ex = classroomExercises.find(e => e.id === parseInt(exId));
+          if (ex) { setSelectedExercise(ex); setScreen('classroom'); }
         }
       }, []);
 
@@ -542,6 +698,41 @@ public class JuegoAdivinanza {
         );
       };
 
+      // Classroom functions
+      const sendToClassroomIframe = (code) => {
+        const iframe = document.getElementById('oc-classroom-iframe');
+        if (iframe && iframe.contentWindow) {
+          iframe.contentWindow.postMessage({
+            eventType: 'populateCode', language: 'java',
+            files: [{ name: 'Main.java', content: code }]
+          }, '*');
+        }
+      };
+
+      const selectExercise = (ex) => {
+        playSound('click');
+        setSelectedExercise(ex);
+        setClassroomIframeLoaded(false);
+        setExerciseLinkCopied(false);
+        // Si el iframe ya estaba cargado de un ejercicio anterior, enviar igual
+        setTimeout(() => sendToClassroomIframe(ex.starterCode), 500);
+      };
+
+      const copyExerciseLink = () => {
+        if (!selectedExercise) return;
+        const url = `${window.location.origin}${window.location.pathname}?ejercicio=${selectedExercise.id}`;
+        navigator.clipboard.writeText(url).catch(() => {});
+        setExerciseLinkCopied(true);
+        setTimeout(() => setExerciseLinkCopied(false), 2500);
+      };
+
+      // Enviar starter code cuando el iframe del classroom carga
+      useEffect(() => {
+        if (!classroomIframeLoaded || !selectedExercise) return;
+        const t = setTimeout(() => sendToClassroomIframe(selectedExercise.starterCode), 800);
+        return () => clearTimeout(t);
+      }, [classroomIframeLoaded, selectedExercise]);
+
       // Sandbox
       const loadTemplate = (code) => { playSound('click'); setEditorCode(code); sendToOneCompiler(code); };
 
@@ -589,7 +780,8 @@ public class JuegoAdivinanza {
                 </div>
               </div>
               <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
-                <button onClick={() => { playSound('click'); setScreen('dashboard'); }} className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${screen !== 'sandbox' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>Ruta Práctico</button>
+                <button onClick={() => { playSound('click'); setScreen('dashboard'); }} className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${screen === 'dashboard' || screen === 'lesson' || screen === 'victory' || screen === 'gameover' || screen === 'certificate' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>Ejercicios</button>
+                <button onClick={() => { playSound('click'); setSelectedExercise(null); setScreen('classroom'); }} className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1 ${screen === 'classroom' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}><BookOpen className="w-3.5 h-3.5"/>Classroom</button>
                 <button onClick={() => { playSound('click'); setScreen('sandbox'); }} className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1 ${screen === 'sandbox' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}><Code2 className="w-3.5 h-3.5"/>Playground</button>
               </div>
               <div className="flex items-center gap-3 bg-slate-100 px-3 py-1.5 rounded-full text-xs font-black">
@@ -606,7 +798,7 @@ public class JuegoAdivinanza {
             </div>
           </header>
 
-          <main className="flex-1 max-w-4xl w-full mx-auto p-4 flex flex-col animate-fadeIn">
+          <main className={`flex-1 w-full mx-auto flex flex-col animate-fadeIn ${screen === 'classroom' && selectedExercise ? 'px-4 max-w-full' : 'max-w-4xl p-4'}`}>
 
             {/* ── SANDBOX ─────────────────────────────────────────────── */}
             {screen === 'sandbox' && (
@@ -646,6 +838,115 @@ public class JuegoAdivinanza {
                   />
                 </div>
                 <p className="text-[10px] text-slate-400 text-center">Powered by OneCompiler · Java OpenJDK gratuito · Sin límite de ejecuciones</p>
+              </div>
+            )}
+
+            {/* ── CLASSROOM ────────────────────────────────────────────── */}
+            {screen === 'classroom' && !selectedExercise && (
+              <div className="space-y-6 py-4 animate-fadeIn">
+                <div className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-6 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <span className="bg-emerald-700/50 text-emerald-100 text-xs px-3 py-1 rounded-full font-black uppercase tracking-widest">Programación Java</span>
+                    <h2 className="text-2xl font-black flex items-center gap-2"><BookOpen className="w-6 h-6"/>Classroom</h2>
+                    <p className="text-emerald-50 text-sm max-w-lg">Seleccionar un ejercicio para ver el enunciado y trabajar en el código. Al terminar, compartir el código con la profe.</p>
+                  </div>
+                  <div className="bg-white/10 p-3 rounded-2xl shrink-0">{renderMascot('happy')}</div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {classroomExercises.map(ex => (
+                    <div key={ex.id} onClick={() => selectExercise(ex)} className="bg-white border-2 border-slate-200 rounded-2xl p-5 cursor-pointer hover:shadow-md hover:border-slate-300 transition-all space-y-3 relative overflow-hidden">
+                      <div className={`absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r ${ex.color}`}/>
+                      <div className="flex items-start justify-between gap-2 pt-1">
+                        <h3 className="font-black text-slate-800 text-sm leading-snug">{ex.title}</h3>
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full whitespace-nowrap ${ex.difficulty === 'Fácil' ? 'bg-emerald-100 text-emerald-700' : 'bg-sky-100 text-sky-700'}`}>{ex.difficulty}</span>
+                      </div>
+                      <p className="text-xs text-slate-500 leading-relaxed">{ex.description}</p>
+                      <div className="flex flex-wrap gap-1">
+                        {ex.subtitle.split(' · ').map((tag, i) => (
+                          <span key={i} className="bg-slate-100 text-slate-600 text-[10px] font-black px-2 py-0.5 rounded-full">{tag}</span>
+                        ))}
+                      </div>
+                      <button className={`w-full py-2 rounded-xl text-xs font-black text-white bg-gradient-to-r ${ex.color} active:scale-95 transition-all`}>
+                        Abrir ejercicio →
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {screen === 'classroom' && selectedExercise && (
+              <div className="animate-fadeIn flex flex-col" style={{ height: 'calc(100vh - 80px)' }}>
+                {/* Barra superior del ejercicio */}
+                <div className="flex items-center justify-between gap-3 py-3 shrink-0">
+                  <button onClick={() => { playSound('click'); setSelectedExercise(null); }} className="text-xs font-black text-slate-500 hover:text-slate-700 bg-white border border-slate-200 px-3 py-1.5 rounded-lg flex items-center gap-1">← Volver</button>
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <span className="font-black text-slate-700 text-sm truncate">{selectedExercise.title}</span>
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${selectedExercise.difficulty === 'Fácil' ? 'bg-emerald-100 text-emerald-700' : 'bg-sky-100 text-sky-700'}`}>{selectedExercise.difficulty}</span>
+                  </div>
+                  <button onClick={copyExerciseLink} className={`text-xs font-black px-3 py-1.5 rounded-lg flex items-center gap-1.5 shrink-0 transition-all ${exerciseLinkCopied ? 'bg-emerald-500 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:border-slate-300'}`}>
+                    {exerciseLinkCopied ? <><Check className="w-3.5 h-3.5"/>¡Link copiado!</> : <><Send className="w-3.5 h-3.5"/>Compartir ejercicio</>}
+                  </button>
+                </div>
+
+                {/* Split panel */}
+                <div className="flex gap-4 flex-1 min-h-0 pb-3">
+
+                  {/* Panel izquierdo: enunciado */}
+                  <div className="w-2/5 bg-white border-2 border-slate-200 rounded-2xl overflow-y-auto flex flex-col shadow-sm">
+                    <div className={`bg-gradient-to-r ${selectedExercise.color} p-4 text-white rounded-t-xl shrink-0`}>
+                      <p className="text-[10px] font-black uppercase tracking-widest opacity-80">{selectedExercise.subtitle}</p>
+                      <h2 className="font-black text-base mt-0.5">{selectedExercise.title}</h2>
+                    </div>
+                    <div className="p-5 space-y-5 flex-1">
+                      <div>
+                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Descripción</h4>
+                        <p className="text-sm text-slate-700 leading-relaxed">{selectedExercise.description}</p>
+                      </div>
+                      <div>
+                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Requerimientos</h4>
+                        <ul className="space-y-2">
+                          {selectedExercise.requirements.map((req, i) => (
+                            <li key={i} className="flex items-start gap-2 text-xs text-slate-700 leading-relaxed">
+                              <span className="mt-0.5 shrink-0 w-5 h-5 rounded-full bg-slate-100 text-slate-500 font-black text-[10px] flex items-center justify-center">{i+1}</span>
+                              <span>{req}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div>
+                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Ejemplo</h4>
+                        <div className="space-y-2">
+                          <div>
+                            <p className="text-[10px] font-black text-slate-400 mb-1">Entrada:</p>
+                            <pre className="bg-slate-900 text-emerald-400 p-3 rounded-xl text-xs font-mono leading-relaxed whitespace-pre-wrap">{selectedExercise.example.input}</pre>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-black text-slate-400 mb-1">Salida esperada:</p>
+                            <pre className="bg-slate-900 text-sky-300 p-3 rounded-xl text-xs font-mono leading-relaxed whitespace-pre-wrap">{selectedExercise.example.output}</pre>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 space-y-1">
+                        <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">💡 Consejo</p>
+                        <p className="text-xs text-amber-800 leading-relaxed">{selectedExercise.hint}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Panel derecho: editor */}
+                  <div className="flex-1 rounded-2xl overflow-hidden border-2 border-slate-700 shadow-lg">
+                    <iframe
+                      id="oc-classroom-iframe"
+                      src="https://onecompiler.com/embed/java?listenToEvents=true&theme=dark&hideLanguageSelection=true&fontSize=14&hideNewFileOption=true&hideTitle=true"
+                      onLoad={() => setClassroomIframeLoaded(true)}
+                      style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+                      title="Editor Classroom Java"
+                      allow="clipboard-read; clipboard-write"
+                    />
+                  </div>
+
+                </div>
               </div>
             )}
 

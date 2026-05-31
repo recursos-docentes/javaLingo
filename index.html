@@ -537,14 +537,23 @@ public class JuegoAdivinanza {
       // Sandbox
       const loadTemplate = (code) => { playSound('click'); setEditorCode(code); sendToOneCompiler(code); };
 
+      const [sharePastedCode, setSharePastedCode] = useState('');
+
       const shareCode = () => {
         playSound('click');
+        setSharePastedCode('');
+        setShareUrl('');
+        setShareCopied(false);
+        setShowShareModal(true);
+      };
+
+      const generateShareUrl = () => {
+        if (!sharePastedCode.trim()) return;
         try {
-          const encoded = btoa(unescape(encodeURIComponent(editorCode)));
+          const encoded = btoa(unescape(encodeURIComponent(sharePastedCode)));
           const url = `${window.location.origin}${window.location.pathname}?code=${encoded}`;
           setShareUrl(url);
           setShareCopied(false);
-          setShowShareModal(true);
         } catch (e) {}
       };
 
@@ -553,7 +562,6 @@ public class JuegoAdivinanza {
           setShareCopied(true);
           setTimeout(() => setShareCopied(false), 2500);
         }).catch(() => {
-          // fallback
           const el = document.getElementById('share-url-input');
           if (el) { el.select(); document.execCommand('copy'); setShareCopied(true); setTimeout(() => setShareCopied(false), 2500); }
         });
@@ -864,16 +872,47 @@ public class JuegoAdivinanza {
             <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4 z-50 animate-fadeIn">
               <div className="bg-white rounded-2xl p-6 max-w-lg w-full space-y-4 shadow-xl border border-slate-200">
                 <div className="space-y-1">
-                  <h3 className="font-black text-slate-800 text-base flex items-center gap-2"><Send className="w-5 h-5 text-emerald-500"/>Compartir código</h3>
-                  <p className="text-xs text-slate-500">Copiá el link y enviáselo a la profe. Al abrirlo, el código aparece cargado directamente en el editor.</p>
+                  <h3 className="font-black text-slate-800 text-base flex items-center gap-2"><Send className="w-5 h-5 text-emerald-500"/>Compartir mi código</h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">Para compartir tu código con la profe, seguí estos pasos:</p>
                 </div>
-                <input id="share-url-input" type="text" readOnly value={shareUrl} onClick={e => e.target.select()} className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-xs font-mono focus:outline-none focus:border-emerald-400 bg-slate-50 text-slate-700 cursor-text"/>
-                <button onClick={copyShareUrl} className={`w-full font-black py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 transition-all active:scale-95 ${shareCopied ? 'bg-emerald-500 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}>
-                  {shareCopied ? <><Check className="w-4 h-4"/>¡Link copiado!</> : <><Send className="w-4 h-4"/>Copiar link</>}
-                </button>
-                <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-100 rounded-xl p-3">
-                  💡 El link refleja el código de la última plantilla cargada. Si modificaste el código en el editor, el link puede no tener los últimos cambios — en ese caso copiá el código manualmente desde el editor de OneCompiler.
-                </p>
+
+                <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 space-y-1 text-xs text-indigo-800">
+                  <p className="font-black">Paso 1 — Copiar el código del editor:</p>
+                  <ol className="list-decimal list-inside space-y-0.5 font-medium">
+                    <li>Hacer clic dentro del editor de código (arriba)</li>
+                    <li>Seleccionar todo: <kbd className="bg-indigo-200 px-1.5 py-0.5 rounded font-mono">Ctrl+A</kbd></li>
+                    <li>Copiar: <kbd className="bg-indigo-200 px-1.5 py-0.5 rounded font-mono">Ctrl+C</kbd></li>
+                  </ol>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-[10px] font-black text-slate-500 uppercase">Paso 2 — Pegarlo aquí:</p>
+                  <textarea
+                    value={sharePastedCode}
+                    onChange={e => { setSharePastedCode(e.target.value); setShareUrl(''); setShareCopied(false); }}
+                    rows={6}
+                    placeholder="Pegar el código aquí (Ctrl+V)..."
+                    className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-xs font-mono focus:outline-none focus:border-indigo-400 resize-none"
+                  />
+                  <button
+                    onClick={generateShareUrl}
+                    disabled={!sharePastedCode.trim()}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-black py-2.5 rounded-xl text-xs transition-all active:scale-95"
+                  >
+                    Generar link
+                  </button>
+                </div>
+
+                {shareUrl && (
+                  <div className="space-y-2 animate-fadeIn">
+                    <p className="text-[10px] font-black text-slate-500 uppercase">Paso 3 — Copiar y enviar el link:</p>
+                    <input id="share-url-input" type="text" readOnly value={shareUrl} onClick={e => e.target.select()} className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-xs font-mono bg-slate-50 cursor-text focus:outline-none focus:border-emerald-400"/>
+                    <button onClick={copyShareUrl} className={`w-full font-black py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 transition-all active:scale-95 ${shareCopied ? 'bg-emerald-500 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}>
+                      {shareCopied ? <><Check className="w-4 h-4"/>¡Link copiado! Enviáselo a la profe</> : <><Send className="w-4 h-4"/>Copiar link</>}
+                    </button>
+                  </div>
+                )}
+
                 <button onClick={() => setShowShareModal(false)} className="w-full py-2 rounded-xl text-xs font-bold text-slate-500 bg-slate-100 hover:bg-slate-200">Cerrar</button>
               </div>
             </div>

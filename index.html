@@ -360,10 +360,12 @@ public class JuegoAdivinanza {
     const JAVA_LANG_ID = 62;
 
     const j0Submit = async (code, stdin) => {
+      // Judge0 siempre usa Main.java — renombramos la clase pública automáticamente
+      const normalized = code.replace(/public\s+class\s+\w+/, 'public class Main');
       const res = await fetch(`${JUDGE0_BASE}/submissions?base64_encoded=false&wait=false`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source_code: code, language_id: JAVA_LANG_ID, stdin })
+        body: JSON.stringify({ source_code: normalized, language_id: JAVA_LANG_ID, stdin })
       });
       if (!res.ok) throw new Error(`Judge0 HTTP ${res.status}`);
       const { token } = await res.json();

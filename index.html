@@ -359,28 +359,24 @@ public class JuegoAdivinanza {
     const JUDGE0_BASE = 'https://ce.judge0.com';
     const JAVA_LANG_ID = 62;
 
-    const j0Submit = async (code, stdin) => {
-      // Judge0 siempre usa Main.java — renombramos la clase pública automáticamente
+    const j0Run = async (code, stdin) => {
+      // Judge0 usa Main.java — renombramos la clase pública automáticamente
       const normalized = code.replace(/public\s+class\s+\w+/, 'public class Main');
-      const res = await fetch(`${JUDGE0_BASE}/submissions?base64_encoded=false&wait=false`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source_code: normalized, language_id: JAVA_LANG_ID, stdin })
-      });
-      if (!res.ok) throw new Error(`Judge0 HTTP ${res.status}`);
-      const { token } = await res.json();
-      if (!token) throw new Error('No se recibió token de Judge0.');
-      return token;
-    };
-
-    const j0Poll = async (token) => {
-      for (let i = 0; i < 20; i++) {
-        await new Promise(r => setTimeout(r, 1500));
-        const res = await fetch(`${JUDGE0_BASE}/submissions/${token}?base64_encoded=false`);
-        const data = await res.json();
-        if (data.status && data.status.id > 2) return data;
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 15000);
+      try {
+        // wait=true → resultado directo, sin polling
+        const res = await fetch(`${JUDGE0_BASE}/submissions?base64_encoded=false&wait=true`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ source_code: normalized, language_id: JAVA_LANG_ID, stdin }),
+          signal: ctrl.signal
+        });
+        if (!res.ok) throw new Error(`Judge0 HTTP ${res.status}`);
+        return await res.json();
+      } finally {
+        clearTimeout(timer);
       }
-      throw new Error('Timeout: el compilador tardó demasiado.');
     };
 
     // ── ANÁLISIS STDIN ─────────────────────────────────────────────────────
@@ -581,9 +577,7 @@ public class JuegoAdivinanza {
         setShowStdinPanel(false); setIsRunning(true); setMascotMood('thinking');
         setConsoleLogs(['⏳ Enviando al compilador Java real (Judge0)...', '🔨 Compilando con OpenJDK 13...']);
         try {
-          const token = await j0Submit(editorCode, stdin);
-          setConsoleLogs(prev => [...prev, '✓ Código enviado. Esperando resultado...']);
-          const result = await j0Poll(token);
+          const result = await j0Run(editorCode, stdin);
           const logs = ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'];
           if (result.status && (result.status.id === 6 || result.compile_output)) {
             logs.push('❌ Error de compilación:');

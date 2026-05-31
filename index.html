@@ -367,6 +367,19 @@ public class JuegoAdivinanza {
       }
     };
 
+    // Encoding UTF-8 seguro para URLs
+    const toB64 = (s) => {
+      const bytes = new TextEncoder().encode(s);
+      const bin = Array.from(bytes).map(b => String.fromCharCode(b)).join('');
+      return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+    };
+    const fromB64 = (s) => {
+      const pad = s.length % 4 ? s + '='.repeat(4 - s.length % 4) : s;
+      const bin = atob(pad.replace(/-/g,'+').replace(/_/g,'/'));
+      const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+      return new TextDecoder().decode(bytes);
+    };
+
     // ── APP ────────────────────────────────────────────────────────────────
     function App() {
       const [xp, setXp]         = useState(() => Number(localStorage.getItem('jl2_xp') || 0));
@@ -387,10 +400,11 @@ public class JuegoAdivinanza {
       const [isCorrect, setIsCorrect] = useState(false);
       const [feedbackText, setFeedbackText] = useState('');
       // Sandbox
-      const [editorCode, setEditorCode]     = useState(playgroundTemplates[0].code);
+      const [editorCode, setEditorCode]       = useState(playgroundTemplates[0].code);
+      const [iframeLoaded, setIframeLoaded]   = useState(false);
       const [showShareModal, setShowShareModal] = useState(false);
-      const [shareUrl, setShareUrl]         = useState('');
-      const [shareCopied, setShareCopied]   = useState(false);
+      const [shareUrl, setShareUrl]           = useState('');
+      const [shareCopied, setShareCopied]     = useState(false);
 
       useEffect(() => {
         localStorage.setItem('jl2_xp', xp.toString());
@@ -408,26 +422,20 @@ public class JuegoAdivinanza {
         const shared = params.get('code');
         if (shared) {
           try {
-            const decoded = decodeURIComponent(escape(atob(shared)));
+            const decoded = fromB64(shared);
             setEditorCode(decoded);
             setScreen('sandbox');
           } catch (e) {}
         }
       }, []);
 
-      // Escuchar cambios de código desde el iframe de OneCompiler
+      // Enviar código a OneCompiler cuando iframe esté listo Y tengamos código
       useEffect(() => {
-        const onMsg = (e) => {
-          if (!e.origin.includes('onecompiler.com')) return;
-          const d = e.data;
-          if (!d) return;
-          const code = d.code || d.script || d.files?.[0]?.content;
-          if ((d.eventType === 'codeChanged' || d.type === 'codeChanged') && code)
-            setEditorCode(code);
-        };
-        window.addEventListener('message', onMsg);
-        return () => window.removeEventListener('message', onMsg);
-      }, []);
+        if (!iframeLoaded) return;
+        // Pequeño delay para que OneCompiler termine de inicializarse
+        const t = setTimeout(() => sendToOneCompiler(editorCode), 800);
+        return () => clearTimeout(t);
+      }, [iframeLoaded, editorCode]);
 
       useEffect(() => {
         if (currentLevel && currentLevel.exercises[currentExerciseIndex] && currentLevel.exercises[currentExerciseIndex].type === 'parsons') {
@@ -550,7 +558,7 @@ public class JuegoAdivinanza {
       const generateShareUrl = () => {
         if (!sharePastedCode.trim()) return;
         try {
-          const encoded = btoa(unescape(encodeURIComponent(sharePastedCode)));
+          const encoded = toB64(sharePastedCode);
           const url = `${window.location.origin}${window.location.pathname}?code=${encoded}`;
           setShareUrl(url);
           setShareCopied(false);
@@ -631,7 +639,7 @@ public class JuegoAdivinanza {
                   <iframe
                     id="oc-iframe"
                     src="https://onecompiler.com/embed/java?listenToEvents=true&codeChangeEvent=true&theme=dark&hideLanguageSelection=true&fontSize=14&hideNewFileOption=true&hideTitle=true"
-                    onLoad={() => sendToOneCompiler(editorCode)}
+                    onLoad={() => setIframeLoaded(true)}
                     style={{ width: '100%', height: '560px', border: 'none', display: 'block' }}
                     title="Playground Java"
                     allow="clipboard-read; clipboard-write"

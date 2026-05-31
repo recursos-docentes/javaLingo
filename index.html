@@ -355,52 +355,16 @@ public class JuegoAdivinanza {
       return escaped;
     };
 
-    // ── COMPILADOR JAVA (proxy Vercel → JDoodle, sin CORS) ────────────────
-    const jdRun = async (code, stdin) => {
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 15000);
-      try {
-        const res = await fetch('/api/run', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code, stdin: stdin || '' }),
-          signal: ctrl.signal
-        });
-        if (!res.ok) throw new Error(`Proxy HTTP ${res.status}`);
-        return await res.json();
-      } finally {
-        clearTimeout(timer);
+    // ── ONECOMPILER (embed interactivo, sin API, sin CORS) ────────────────
+    const sendToOneCompiler = (code) => {
+      const iframe = document.getElementById('oc-iframe');
+      if (iframe && iframe.contentWindow) {
+        iframe.contentWindow.postMessage({
+          eventType: 'populateCode',
+          language: 'java',
+          files: [{ name: 'Main.java', content: code }]
+        }, '*');
       }
-    };
-
-    // ── ANÁLISIS STDIN ─────────────────────────────────────────────────────
-    const analyzeStdin = (code) => {
-      if (/\b(for|while|do)\b/.test(code)) return { mode: 'textarea', inputs: [] };
-      const lines = code.split('\n');
-      const inputs = [];
-      lines.forEach((line, idx) => {
-        const t = line.trim();
-        let type = null, hint = '';
-        if      (t.includes('.nextInt()'))    { type = 'int';    hint = 'ej: 25'; }
-        else if (t.includes('.nextDouble()')) { type = 'double'; hint = 'ej: 1.75'; }
-        else if (t.includes('.nextFloat()'))  { type = 'float';  hint = 'ej: 1.75'; }
-        else if (t.includes('.nextLong()'))   { type = 'long';   hint = 'ej: 12345'; }
-        else if (t.includes('.nextLine()'))   { type = 'texto';  hint = 'ej: García'; }
-        else if (t.includes('.next()'))       { type = 'texto';  hint = 'ej: García'; }
-        if (type) {
-          let label = `Valor (${type})`;
-          for (let i = idx - 1; i >= Math.max(0, idx - 3); i--) {
-            const prev = lines[i].trim();
-            if (prev.includes('System.out.print')) {
-              const m = prev.match(/"([^"]+)"/);
-              if (m) { label = m[1].replace(/:\s*$/, '').trim(); break; }
-            }
-          }
-          inputs.push({ label, type, hint });
-        }
-      });
-      if (inputs.length === 0) return { mode: 'none', inputs: [] };
-      return { mode: 'fields', inputs };
     };
 
     // ── APP ────────────────────────────────────────────────────────────────
@@ -423,14 +387,7 @@ public class JuegoAdivinanza {
       const [isCorrect, setIsCorrect] = useState(false);
       const [feedbackText, setFeedbackText] = useState('');
       // Sandbox
-      const [editorCode, setEditorCode]         = useState(playgroundTemplates[0].code);
-      const [consoleLogs, setConsoleLogs]       = useState(['Bienvenido al Playground de Java Real.', 'Carga una plantilla o escribí tu código y presioná Ejecutar.']);
-      const [isRunning, setIsRunning]           = useState(false);
-      const [stdinAnalysis, setStdinAnalysis]   = useState(null);
-      const [stdinFields, setStdinFields]       = useState({});
-      const [stdinText, setStdinText]           = useState('');
-      const [showStdinPanel, setShowStdinPanel] = useState(false);
-      const [mascotMood, setMascotMood]         = useState('happy');
+      const [editorCode, setEditorCode] = useState(playgroundTemplates[0].code);
 
       useEffect(() => {
         localStorage.setItem('jl2_xp', xp.toString());
@@ -548,50 +505,7 @@ public class JuegoAdivinanza {
       };
 
       // Sandbox
-      const clearSandbox = () => { playSound('click'); setConsoleLogs(['Consola limpia.']); setIsRunning(false); setShowStdinPanel(false); setStdinAnalysis(null); setMascotMood('happy'); };
-      const loadTemplate = (code) => { playSound('click'); setEditorCode(code); clearSandbox(); };
-
-      const handleRunClick = () => {
-        playSound('click');
-        const analysis = analyzeStdin(editorCode);
-        setStdinAnalysis(analysis);
-        if (analysis.mode === 'none') { runOnJudge0(analysis, {}, ''); }
-        else { setStdinFields({}); setStdinText(''); setShowStdinPanel(true); setConsoleLogs(['Completar los datos que el programa va a solicitar.']); setMascotMood('thinking'); }
-      };
-
-      const handleExecute = () => {
-        let stdin = '';
-        if (stdinAnalysis && stdinAnalysis.mode === 'fields')
-          stdin = stdinAnalysis.inputs.map((_, i) => stdinFields[i] || '').join('\n');
-        else stdin = stdinText;
-        runOnJudge0(stdinAnalysis, stdinFields, stdin);
-      };
-
-      const runOnJudge0 = async (analysis, fields, stdin) => {
-        setShowStdinPanel(false); setIsRunning(true); setMascotMood('thinking');
-        setConsoleLogs(['⏳ Enviando al compilador Java (JDoodle)...', '🔨 Compilando con OpenJDK...']);
-        try {
-          const result = await jdRun(editorCode, stdin);
-          const logs = ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'];
-          // JDoodle: { output, statusCode, cpuTime, memory }
-          // statusCode 200 = éxito, de lo contrario error
-          if (result.statusCode !== 200) {
-            logs.push('❌ Error:');
-            (result.output || '').split('\n').filter(Boolean).forEach(l => logs.push('  ' + l));
-            setMascotMood('scared'); playSound('error');
-          } else {
-            (result.output || '(sin salida en consola)').split('\n').forEach(l => logs.push(l));
-            logs.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-            logs.push(`✓ Proceso exitoso — ${result.cpuTime || '?'}s — ${result.memory || '?'} KB`);
-            setMascotMood('happy'); playSound('success');
-          }
-          setConsoleLogs(prev => [...prev, ...logs]);
-        } catch (e) {
-          setConsoleLogs(prev => [...prev, '❌ Error de conexión con el compilador.', 'Verificá tu Internet e intentá de nuevo.', `Detalle: ${e.message}`]);
-          setMascotMood('scared'); playSound('error');
-        }
-        setIsRunning(false);
-      };
+      const loadTemplate = (code) => { playSound('click'); setEditorCode(code); sendToOneCompiler(code); };
 
       return (
         <div className={`min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans ${easyRead ? 'tracking-wider text-lg' : ''}`}>
@@ -628,18 +542,20 @@ public class JuegoAdivinanza {
 
             {/* ── SANDBOX ─────────────────────────────────────────────── */}
             {screen === 'sandbox' && (
-              <div className="space-y-5 py-4">
+              <div className="space-y-4 py-4">
+                {/* Header */}
                 <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-5 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
                   <div className="space-y-1 text-center md:text-left">
-                    <span className="bg-indigo-700/50 text-indigo-100 text-xs px-3 py-1 rounded-full font-black uppercase tracking-widest">Java Real — Judge0 CE</span>
+                    <span className="bg-indigo-700/50 text-indigo-100 text-xs px-3 py-1 rounded-full font-black uppercase tracking-widest">Java Real — OneCompiler</span>
                     <h2 className="text-2xl font-black flex items-center justify-center md:justify-start gap-2"><Terminal className="w-6 h-6"/>Playground de Java</h2>
-                    <p className="text-indigo-100 text-sm max-w-lg">Código compilado por <strong>OpenJDK 13 real</strong>. Usá bucles, arrays, Random, métodos — todo Java. Si el programa usa Scanner, se pedirán los datos antes de ejecutar.</p>
+                    <p className="text-indigo-100 text-sm max-w-lg">Editor interactivo completo. Podés escribir código, ejecutarlo e ingresar datos en tiempo real. Soporta bucles, arrays, Random, Scanner — todo Java.</p>
                   </div>
-                  <div className="bg-white/10 p-3 rounded-2xl shrink-0">{renderMascot(mascotMood)}</div>
+                  <div className="bg-white/10 p-3 rounded-2xl shrink-0">{renderMascot('happy')}</div>
                 </div>
 
-                <div className="bg-white border border-slate-200 p-4 rounded-xl flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-xs font-extrabold text-slate-600">Plantillas:</p>
+                {/* Templates */}
+                <div className="bg-white border border-slate-200 p-4 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-sm">
+                  <p className="text-xs font-extrabold text-slate-600">Cargar plantilla en el editor:</p>
                   <div className="flex flex-wrap gap-2">
                     {playgroundTemplates.map((t, i) => (
                       <button key={i} onClick={() => loadTemplate(t.code)} className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded-lg text-xs font-black active:scale-95 transition-all">{t.name}</button>
@@ -647,105 +563,18 @@ public class JuegoAdivinanza {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-                  {/* Editor */}
-                  <div className="lg:col-span-7 bg-white border-2 border-slate-200 rounded-2xl p-4 space-y-3 shadow-sm">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Code2 className="w-4 h-4 text-indigo-500"/>Editor Java</h3>
-                      <button onClick={() => loadTemplate('')} className="text-slate-400 hover:text-rose-500 p-1.5 rounded-lg hover:bg-slate-100" title="Borrar"><Trash2 className="w-4 h-4"/></button>
-                    </div>
-                    <div className="relative font-mono text-xs bg-slate-900 rounded-xl overflow-hidden border border-slate-800">
-                      <div className="flex min-h-[320px]">
-                        <div className="bg-slate-950 text-slate-600 text-right px-2.5 py-3 select-none border-r border-slate-800/50 min-w-[38px]">
-                          {editorCode.split('\n').map((_, i) => (<div key={i} className="h-5 leading-5">{i + 1}</div>))}
-                        </div>
-                        <div className="relative flex-1">
-                          <pre className="absolute inset-0 p-3 pointer-events-none font-mono text-xs leading-5 whitespace-pre-wrap break-words overflow-auto text-slate-100" dangerouslySetInnerHTML={{ __html: highlightJavaCode(editorCode) }} style={{ fontFamily: 'monospace' }}/>
-                          <textarea value={editorCode} onChange={e => setEditorCode(e.target.value)} disabled={isRunning} className="absolute inset-0 w-full h-full p-3 bg-transparent text-transparent caret-white focus:outline-none resize-none font-mono text-xs leading-5 z-10" placeholder="// Escribe tu código Java aquí..." style={{ fontFamily: 'monospace', WebkitTextFillColor: 'transparent' }}/>
-                        </div>
-                      </div>
-                    </div>
-                    <button onClick={handleRunClick} disabled={isRunning} className={`w-full font-black py-3 rounded-xl text-xs flex items-center justify-center gap-2 active:scale-95 transition-all ${isRunning ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm'}`}>
-                      {isRunning
-                        ? <><Loader2 className="w-4 h-4 animate-spin-slow"/>Compilando en Java real...</>
-                        : <><Play className="w-4 h-4 fill-current"/>Ejecutar Código</>}
-                    </button>
-                  </div>
-
-                  {/* Output + Stdin */}
-                  <div className="lg:col-span-5 flex flex-col gap-4">
-                    {/* Consola */}
-                    <div className="bg-slate-950 text-slate-100 rounded-2xl p-4 border-2 border-slate-800 shadow-md flex flex-col" style={{ minHeight: '220px' }}>
-                      <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-2">
-                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-1"><Terminal className="w-3.5 h-3.5 text-emerald-400"/>Consola de Salida</span>
-                        {isRunning && <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"/>}
-                      </div>
-                      <div className="flex-1 overflow-y-auto font-mono text-[11px] space-y-0.5" style={{ maxHeight: '200px' }}>
-                        {consoleLogs.map((log, i) => (
-                          <div key={i} className={`leading-relaxed whitespace-pre-wrap ${log.startsWith('❌') ? 'text-rose-400' : log.startsWith('✓') ? 'text-emerald-400' : log.startsWith('━') ? 'text-slate-600' : ''}`}>{log}</div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Stdin — campos individuales */}
-                    {showStdinPanel && stdinAnalysis && stdinAnalysis.mode === 'fields' && (
-                      <div className="bg-white border-2 border-indigo-200 rounded-2xl p-4 space-y-3 animate-fadeIn">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"/>
-                          <h4 className="text-xs font-black text-slate-700 uppercase tracking-widest">Datos de entrada</h4>
-                        </div>
-                        <p className="text-[10px] text-slate-500">El programa tiene {stdinAnalysis.inputs.length} lectura(s) de teclado. Completar antes de ejecutar.</p>
-                        {stdinAnalysis.inputs.map((inp, i) => (
-                          <div key={i} className="space-y-1">
-                            <label className="text-[10px] font-black text-slate-500 uppercase">{inp.label} <span className="text-indigo-400 normal-case font-normal">({inp.type})</span></label>
-                            <input type="text" value={stdinFields[i] || ''} onChange={e => setStdinFields(prev => ({ ...prev, [i]: e.target.value }))} onKeyDown={e => { if (e.key === 'Enter' && i === stdinAnalysis.inputs.length - 1) handleExecute(); }} placeholder={inp.hint} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400 font-mono"/>
-                          </div>
-                        ))}
-                        <button onClick={handleExecute} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 active:scale-95"><Send className="w-3.5 h-3.5"/>Ejecutar con estos datos</button>
-                        <button onClick={() => setShowStdinPanel(false)} className="w-full text-slate-400 text-xs font-bold hover:text-slate-600">Cancelar</button>
-                      </div>
-                    )}
-
-                    {/* Stdin — bucle detectado → recomendar OnlineGDB */}
-                    {showStdinPanel && stdinAnalysis && stdinAnalysis.mode === 'textarea' && (
-                      <div className="bg-white border-2 border-amber-200 rounded-2xl p-4 space-y-3 animate-fadeIn">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"/>
-                          <h4 className="text-xs font-black text-amber-700 uppercase tracking-widest">⚠️ Programa interactivo</h4>
-                        </div>
-                        <p className="text-[11px] text-slate-600 leading-relaxed">Este programa usa bucles con Scanner — necesita responder al usuario en tiempo real. Para probarlo correctamente usá <strong>OnlineGDB</strong> que es interactivo.</p>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(editorCode).catch(() => {});
-                            window.open('https://www.onlinegdb.com/online_java_compiler', '_blank');
-                          }}
-                          className="w-full bg-amber-500 hover:bg-amber-600 text-white font-black py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 active:scale-95"
-                        >
-                          📋 Copiar código y abrir OnlineGDB
-                        </button>
-                        <div className="border-t border-slate-100 pt-3 space-y-2">
-                          <p className="text-[10px] text-slate-400 leading-relaxed">O si querés igual ejecutarlo aquí, ingresá todos los valores de una vez (una línea por valor):</p>
-                          <textarea value={stdinText} onChange={e => setStdinText(e.target.value)} rows={4} placeholder={"50\n25\n37\n42\n..."} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-amber-400 font-mono resize-none"/>
-                          <button onClick={handleExecute} className="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-black py-2 rounded-xl text-xs flex items-center justify-center gap-2 active:scale-95"><Send className="w-3.5 h-3.5"/>Ejecutar de todas formas</button>
-                        </div>
-                        <button onClick={() => setShowStdinPanel(false)} className="w-full text-slate-400 text-xs font-bold hover:text-slate-600">Cancelar</button>
-                      </div>
-                    )}
-
-                    {/* Info compilador */}
-                    {!showStdinPanel && (
-                      <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 space-y-2">
-                        <h4 className="text-xs font-black text-indigo-700 flex items-center gap-1.5"><Cpu className="w-4 h-4"/>Compilador Java Real</h4>
-                        <ul className="text-[11px] text-indigo-700 space-y-1">
-                          <li>✓ Bucles for, while, do-while</li>
-                          <li>✓ Arrays y ArrayList</li>
-                          <li>✓ Random, Math, Scanner</li>
-                          <li>✓ Métodos y clases</li>
-                        </ul>
-                      </div>
-                    )}
-                  </div>
+                {/* OneCompiler iframe */}
+                <div className="rounded-2xl overflow-hidden border-2 border-slate-700 shadow-lg">
+                  <iframe
+                    id="oc-iframe"
+                    src="https://onecompiler.com/embed/java?listenToEvents=true&theme=dark&hideLanguageSelection=true&fontSize=14&hideNewFileOption=true&hideTitle=true"
+                    onLoad={() => sendToOneCompiler(editorCode)}
+                    style={{ width: '100%', height: '560px', border: 'none', display: 'block' }}
+                    title="Playground Java"
+                    allow="clipboard-read; clipboard-write"
+                  />
                 </div>
+                <p className="text-[10px] text-slate-400 text-center">Powered by OneCompiler · Java OpenJDK gratuito · Sin límite de ejecuciones</p>
               </div>
             )}
 

@@ -355,26 +355,37 @@ public class JuegoAdivinanza {
       return escaped;
     };
 
-    // ── PISTON API (compilador Java gratuito, sin clave) ───────────────────
-    const pistonRun = async (code, stdin) => {
-      // Piston usa el nombre del archivo — la clase debe llamarse Main
+    // ── GLOT.IO API (compilador Java gratuito, token anónimo) ─────────────
+    const glotRun = async (code, stdin) => {
       const normalized = code.replace(/public\s+class\s+\w+/, 'public class Main');
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 20000);
       try {
-        const res = await fetch('https://emkc.org/api/v2/piston/execute', {
+        // 1. Obtener token anónimo
+        const authRes = await fetch('https://glot.io/api/auth/anonymous', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          body: '{}',
+          signal: ctrl.signal
+        });
+        if (!authRes.ok) throw new Error(`Glot auth HTTP ${authRes.status}`);
+        const { token } = await authRes.json();
+
+        // 2. Ejecutar código
+        const runRes = await fetch('https://glot.io/api/run/java/latest', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Token ${token}`
+          },
           body: JSON.stringify({
-            language: 'java',
-            version: '*',
             files: [{ name: 'Main.java', content: normalized }],
             stdin: stdin || ''
           }),
           signal: ctrl.signal
         });
-        if (!res.ok) throw new Error(`Piston HTTP ${res.status}`);
-        return await res.json();
+        if (!runRes.ok) throw new Error(`Glot run HTTP ${runRes.status}`);
+        return await runRes.json();
       } finally {
         clearTimeout(timer);
       }
@@ -576,25 +587,26 @@ public class JuegoAdivinanza {
 
       const runOnJudge0 = async (analysis, fields, stdin) => {
         setShowStdinPanel(false); setIsRunning(true); setMascotMood('thinking');
-        setConsoleLogs(['⏳ Enviando al compilador Java real (Piston)...', '🔨 Compilando con Java OpenJDK...']);
+        setConsoleLogs(['⏳ Conectando con compilador Java (Glot.io)...', '🔨 Compilando con OpenJDK...']);
         try {
-          const result = await pistonRun(editorCode, stdin);
+          const result = await glotRun(editorCode, stdin);
           const logs = ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'];
-          const compileErr = result.compile && result.compile.code !== 0 ? result.compile.stderr || result.compile.output : null;
-          const runErr     = result.run && result.run.code !== 0 && !compileErr ? result.run.stderr : null;
-          if (compileErr) {
-            logs.push('❌ Error de compilación:');
-            compileErr.split('\n').filter(Boolean).forEach(l => logs.push('  ' + l));
+          // Glot: { stdout, stderr, error }
+          // stderr contiene errores de compilación Y de runtime juntos
+          if (result.error) {
+            logs.push('❌ Error del servidor:');
+            result.error.split('\n').filter(Boolean).forEach(l => logs.push('  ' + l));
             setMascotMood('scared'); playSound('error');
-          } else if (runErr) {
-            logs.push('❌ Error de ejecución:');
-            runErr.split('\n').filter(Boolean).forEach(l => logs.push('  ' + l));
+          } else if (result.stderr) {
+            const isCompile = /\.java:\d+:/.test(result.stderr);
+            logs.push(isCompile ? '❌ Error de compilación:' : '❌ Error de ejecución:');
+            result.stderr.split('\n').filter(Boolean).forEach(l => logs.push('  ' + l));
             setMascotMood('scared'); playSound('error');
           } else {
-            const out = (result.run && result.run.stdout) || '';
+            const out = result.stdout || '(sin salida en consola)';
             out.split('\n').forEach(l => logs.push(l));
             logs.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-            logs.push(`✓ Proceso exitoso — Java ${result.version || ''}`);
+            logs.push('✓ Proceso exitoso');
             setMascotMood('happy'); playSound('success');
           }
           setConsoleLogs(prev => [...prev, ...logs]);

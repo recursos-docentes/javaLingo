@@ -673,7 +673,7 @@ public class JuegoAdivinanza {
                           {editorCode.split('\n').map((_, i) => (<div key={i} className="h-5 leading-5">{i + 1}</div>))}
                         </div>
                         <div className="relative flex-1">
-                          <pre className="absolute inset-0 p-3 pointer-events-none font-mono text-xs leading-5 whitespace-pre-wrap break-words overflow-auto" dangerouslySetInnerHTML={{ __html: highlightJavaCode(editorCode) }} style={{ fontFamily: 'monospace' }}/>
+                          <pre className="absolute inset-0 p-3 pointer-events-none font-mono text-xs leading-5 whitespace-pre-wrap break-words overflow-auto text-slate-100" dangerouslySetInnerHTML={{ __html: highlightJavaCode(editorCode) }} style={{ fontFamily: 'monospace' }}/>
                           <textarea value={editorCode} onChange={e => setEditorCode(e.target.value)} disabled={isRunning} className="absolute inset-0 w-full h-full p-3 bg-transparent text-transparent caret-white focus:outline-none resize-none font-mono text-xs leading-5 z-10" placeholder="// Escribe tu código Java aquí..." style={{ fontFamily: 'monospace', WebkitTextFillColor: 'transparent' }}/>
                         </div>
                       </div>

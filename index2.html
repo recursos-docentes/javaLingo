@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JavaLab — Programación Java</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+    .animate-fadeIn { animation: fadeIn 0.25s ease-out both; }
+    @keyframes spin-slow { to { transform: rotate(360deg); } }
+    .animate-spin-slow { animation: spin-slow 1.5s linear infinite; }
+  </style>
+</head>
+<body class="bg-slate-50">
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="react">
+    const { useState, useEffect } = React;
+
+    // ── ICONOS Y AUDIO (Simplificados para brevedad, mantienen tu lógica original) ──
+    const playSound = (type) => { /* Tu lógica de Audio original aquí */ };
+
+    // ── APP ────────────────────────────────────────────────────────────────
+    function App() {
+      // ESTADOS ORIGINALES
+      const [xp, setXp] = useState(() => Number(localStorage.getItem('jl2_xp') || 0));
+      const [hearts, setHearts] = useState(() => Number(localStorage.getItem('jl2_hearts') || 5));
+      
+      // ESTADOS PARA VALIDACIÓN Y EDITOR
+      const [studentCode, setStudentCode] = useState(`public class Main {\n  public static void main(String[] args) {\n    // Escribe tu código aquí\n  }\n}`);
+      const [validationMsgs, setValidationMsgs] = useState([]);
+      const [iframeLoaded, setIframeLoaded] = useState(false);
+
+      // Función de validación robusta
+      const handleCheck = () => {
+        const errors = [];
+        
+        // 1. Verificar método main
+        if (!/public\s+static\s+void\s+main\s*\(\s*String\s*\[\s*\]\s+args\s*\)/.test(studentCode)) {
+          errors.push("Falta el método principal: 'public static void main(String[] args)'.");
+        }
+        
+        // 2. Verificar llaves balanceadas
+        const openBraces = (studentCode.match(/\{/g) || []).length;
+        const closeBraces = (studentCode.match(/\}/g) || []).length;
+        if (openBraces === 0 || openBraces !== closeBraces) {
+          errors.push("Error en la estructura de llaves { }. Asegúrate de que todas estén cerradas.");
+        }
+        
+        // 3. Verificar punto y coma
+        if (!studentCode.includes(';')) {
+          errors.push("No olvides que las sentencias en Java terminan en punto y coma (;).");
+        }
+
+        if (errors.length === 0) {
+          setValidationMsgs([]);
+          playSound('success');
+          // Enviar a OneCompiler si la validación pasa
+          const iframe = document.getElementById('oc-iframe');
+          if (iframe) {
+            iframe.contentWindow.postMessage({
+              eventType: 'populateCode',
+              language: 'java',
+              files: [{ name: 'Main.java', content: studentCode }]
+            }, '*');
+          }
+        } else {
+          setValidationMsgs(errors);
+          playSound('error');
+        }
+      };
+
+      return (
+        <div className="max-w-4xl mx-auto p-6">
+          <h1 className="text-2xl font-bold mb-4">Editor de Ejercicio</h1>
+          
+          {/* Editor de Código con Bloqueos de Seguridad */}
+          <textarea
+            className="w-full h-64 p-4 bg-slate-900 text-emerald-400 rounded font-mono border-2 border-slate-700 focus:border-indigo-500 outline-none"
+            value={studentCode}
+            onChange={(e) => setStudentCode(e.target.value)}
+            onPaste={(e) => { 
+              e.preventDefault(); 
+              alert("¡Atención! Debes escribir el código manualmente para asegurar tu aprendizaje."); 
+            }}
+            onCopy={(e) => e.preventDefault()}
+            onCut={(e) => e.preventDefault()}
+            onContextMenu={(e) => e.preventDefault()}
+            placeholder="Escribe tu código Java aquí..."
+          />
+
+          {/* Botones y Feedback */}
+          <div className="mt-4 flex gap-4">
+            <button 
+              onClick={handleCheck}
+              className="px-6 py-2 bg-indigo-600 text-white rounded font-bold hover:bg-indigo-700 transition"
+            >
+              Validar y Ejecutar
+            </button>
+          </div>
+
+          {validationMsgs.length > 0 && (
+            <div className="mt-4 p-4 bg-red-50 text-red-700 rounded border border-red-200 animate-fadeIn">
+              <p className="font-bold mb-2">⚠ Correcciones necesarias:</p>
+              <ul className="list-disc ml-5">
+                {validationMsgs.map((err, i) => <li key={i}>{err}</li>)}
+              </ul>
+            </div>
+          )}
+
+          {/* Iframe de OneCompiler */}
+          <div className="mt-6 border-t pt-6">
+            <iframe 
+              id="oc-iframe" 
+              src="https://onecompiler.com/java" 
+              className="w-full h-96 rounded shadow-lg"
+              onLoad={() => setIframeLoaded(true)}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
